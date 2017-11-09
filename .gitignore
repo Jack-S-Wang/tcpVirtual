@@ -1,0 +1,4 @@
+# git ignore file
+
+/virtualPrint/obj/
+/virtualPrint/bin/
