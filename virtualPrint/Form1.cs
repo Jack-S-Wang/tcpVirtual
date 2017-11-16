@@ -274,7 +274,7 @@ namespace virtualPrint
                         }
                     }
                 }
-                catch { }
+                catch { return; }
                 try
                 {
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
@@ -287,14 +287,11 @@ namespace virtualPrint
 
             private void getConnec()
             {
-                if (stream == null)
+                if (stream != null)
                 {
-                    if (client != null)
-                    {
-                        client.Close();
-                        client = new TcpClient();
-                        stream.Dispose();
-                    }
+                    client.Close();
+                    client = new TcpClient();
+                    stream.Dispose();
                 }
                 client.BeginConnect(ip, port1, OnConnectComplete, null);
             }
