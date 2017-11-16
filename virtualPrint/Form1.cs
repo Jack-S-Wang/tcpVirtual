@@ -23,6 +23,8 @@ namespace virtualPrint
         public delegate void retext(string str);
         static object objectLock = new object();
         static System.Timers.Timer ti = new System.Timers.Timer();
+        static System.Timers.Timer ti2 = new System.Timers.Timer(10000);
+        static FileStream file = new FileStream(@"./wenben/log.txt", FileMode.OpenOrCreate);
         private void button1_Click(object sender, EventArgs e)
         {
             try
@@ -38,11 +40,11 @@ namespace virtualPrint
                             int dataPort = Int32.Parse(textBox4.Text);
                             int numPrinters = Int32.Parse(textBox5.Text);
 
-                            List<int> li = new List<int>();
-
+                            List<Guid> li = new List<Guid>();
+                            Guid sn ;
                             for (int i = 0; i < numPrinters; )
                             {
-                                int sn = Print.RD.Next(1000000, 9000000);
+                                sn = Guid.NewGuid();
                                 if (li.Contains(sn))
                                 {
                                     continue;
@@ -81,6 +83,8 @@ namespace virtualPrint
                     {
                         keyValue.Close();
                     }
+                    Print.conncedCount = 0;
+                    Print.openCount = 0;
                     Print.dic.Clear();
                 }
             }
@@ -110,9 +114,12 @@ namespace virtualPrint
                         keyValue.Close();
                       
                     }
+                    Print.conncedCount = 0;
                     Print.dic.Clear();
                 }
             }
+            file.Flush();
+            file.Dispose();
             Application.ExitThread();
         }
 
@@ -120,21 +127,24 @@ namespace virtualPrint
         {
             lock (objectLock)
             {
+                byte[] strByte = null;
+
                 if (type == 1)
                 {
-                    System.IO.File.AppendAllText(@"./wenben/log.txt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
                 }
                 else if (type == 2)
                 {
-                    System.IO.File.AppendAllText(@"./wenben/log.txt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制服务器数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制服务器数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
                 }
                 else if (type == 3)
                 {
-                    System.IO.File.AppendAllText(@"./wenben/log.txt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "打印数据" + sn + ":{" + BitConverter.ToString(data) + "}\r\n");
+
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "打印数据" + sn + ":{" + BitConverter.ToString(data) + "}\r\n");
                 }
                 else if (type == 4)
                 {
-                    System.IO.File.AppendAllText(@"./wenben/log.txt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "打印服务器数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "打印服务器数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
                     //显示二进制的文本文件
                     //StringBuilder sendDa=new StringBuilder(data.Length*8);
                     //foreach (byte da in data)
@@ -146,7 +156,12 @@ namespace virtualPrint
                 }
                 else if (type == 5)
                 {
-                    System.IO.File.AppendAllText(@"./wenben/log.txt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "打印sn数据" + sn + ":{" + BitConverter.ToString(data) + "}\r\n");
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "打印sn数据" + sn + ":{" + BitConverter.ToString(data) + "}\r\n");
+                }
+
+                if (strByte != null)
+                {
+                    file.Write(strByte, 0, strByte.Length);
                 }
             }
         }
@@ -163,18 +178,10 @@ namespace virtualPrint
 
         public void addText(string str)
         {
-            if (formShow )
-            {
-
-                textBox3.AppendText("总线程连接数：" + Print.openCount + "\r\n");
-            }
-            else
-            {
-
-                textBox3.AppendText(str);
-                
-            }
+           
         }
+
+       
 
         public void addTextAsync(string str)
         {
@@ -191,51 +198,43 @@ namespace virtualPrint
             }
         }
 
-        static bool formShow = true;
-
-        private void checkBox1_Click(object sender, EventArgs e)
-        {
-            if (this.checkBox1.Checked)
-            {
-
-                formShow = true;
-            }
-            else
-            {
-
-                formShow = false;
-            }
-        }
 
         public class Print
         {
-            public Print(int index, IPAddress ip, int port1, int port2, retext logger)
+            public Print(Guid index, IPAddress ip, int port1, int port2, retext logger)
             {
                 this.ip = ip;
                 this.index = index;
+                this.port1 = port1;
                 this.port2 = port2;
                 OnPrintLog = logger;
                 client = new TcpClient();
-                client.BeginConnect(ip, port1, OnConnectComplete, null);
                 receiveBuffer = new byte[1024];
                 received = new List<byte>();
                 isAuthenticated = false;
                 closed = false;
+                hearbeat = false;
+                client.BeginConnect(ip, port1, OnConnectComplete, null);
+                
             }
             public static List<Print> dic = new List<Print>();
             public static Random RD = new Random();
-            public int index;
+            public Guid index;
+            public int port1;
             public TcpClient client;
             public NetworkStream stream;
             public List<byte> received;
             public byte[] receiveBuffer;
             public bool isAuthenticated;
             public static volatile int openCount = 0;
+            public  bool hearbeat;
+            public bool state = false;
+            public static volatile int conncedCount = 0;
             public int port2;
             public IPAddress ip;
             public bool isBeat = false;
             public event retext OnPrintLog;
-
+           
             private volatile bool closed;
 
             public void Close()
@@ -244,11 +243,6 @@ namespace virtualPrint
                 client.Close();
                 stream.Close();
                 stream.Dispose();
-                if (isAuthenticated)
-                {
-                    Interlocked.Decrement(ref openCount);
-                }
-                log("客户端曰：已主动断开连接!\n");
             }
 
             public void log(string l)
@@ -271,16 +265,38 @@ namespace virtualPrint
                 {
                     client.EndConnect(ar);
                     stream = client.GetStream();
-                    lock (objectLock)
+                    if (client.Connected && stream != null)
                     {
-                        dic.Add(this);
+                        lock (objectLock)
+                        {
+                            dic.Add(this);
+                            Interlocked.Increment(ref openCount);
+                        }
                     }
-                    stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, null);
                 }
-                catch (Exception)
+                catch { }
+                try
                 {
-                    log("客户端曰：连接服务失败！\r\n");
+                    stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
                 }
+                catch (Exception ex)
+                {
+                    Interlocked.Decrement(ref openCount);
+                }
+            }
+
+            private void getConnec()
+            {
+                if (stream == null)
+                {
+                    if (client != null)
+                    {
+                        client.Close();
+                        client = new TcpClient();
+                        stream.Dispose();
+                    }
+                }
+                client.BeginConnect(ip, port1, OnConnectComplete, null);
             }
 
             public void OnWriteComplete(IAsyncResult ar)
@@ -294,9 +310,15 @@ namespace virtualPrint
                 {
                     stream.EndWrite(ar);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    log("客户端曰：客户端发送内容失败！\r\n");
+                   
+                    client.Close();
+                    stream.Dispose();
+                    lock (objectLock)
+                        dic.Remove(this);
+                    getConnec();
+                    
                 }
             }
 
@@ -306,18 +328,19 @@ namespace virtualPrint
                 {
                     return;
                 }
-
+                int readcount = 0;
                 try
                 {
                     var read = stream.EndRead(ar);
                     if (read == 0)
                     {
-                        log("客户端曰：服务已断开连接!\n");
                         stream.Dispose();
                         client.Close();
                         (client as IDisposable).Dispose();
+                        Interlocked.Decrement(ref openCount);
                         return;
                     }
+                    readcount = read;
 
                     {
                         var tmp = new byte[read];
@@ -328,21 +351,42 @@ namespace virtualPrint
                             setLog(tmp, 2, index.ToString());
                         }
                     }
+                }
+                    catch (Exception ex)
+                {
+                  
+                    Interlocked.Decrement(ref openCount);
+                    client.Close();
+                    stream.Dispose();
+                    lock (objectLock)
+                    {
+                        dic.Remove(this);
+                    }
+                    getConnec();
+
+                }
+                try
+                {
                     if (isAuthenticated)
                     {
-                        HandleNormalData(read);
+                        HandleNormalData(readcount);
                     }
                     else
                     {
-                        HandleAuthentication(read);
+                        HandleAuthentication(readcount);
                     }
-
-                    stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, null);
-
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    log("客户端曰：读取信息失败！\r\n");
+                    throw ex;
+                }
+                try
+                {
+                    stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
                 }
                
             }
@@ -363,7 +407,8 @@ namespace virtualPrint
                         var msg = new byte[16 + bodySize];
                         received.CopyTo(0, msg, 0, 16 + bodySize);
                         received.RemoveRange(0, 16 + bodySize);
-
+                        hearbeat = true;
+                        stateTo(hearbeat);
                         if (receiveBuffer[4] == 3 || receiveBuffer[4] == 5)
                         {
                             byte[] ssbytes;
@@ -400,7 +445,7 @@ namespace virtualPrint
                             {
                                 setLog(sendBuffer, 1, index.ToString());
                             }
-                            log("客户端曰：{" + BitConverter.ToString(sendBuffer) + "}\n");
+                           
                         }
                         else if(receiveBuffer[4]==7)
                         {
@@ -408,10 +453,16 @@ namespace virtualPrint
                         }
                     }
                 }
-
-
             }
+            private void stateTo(bool tag)
+            {
 
+                if (state != tag)
+                {
+                    Interlocked.Increment(ref conncedCount);
+                }
+                state = tag;
+            }
             public void HandleAuthentication(int read)
             {
                 try
@@ -456,15 +507,15 @@ namespace virtualPrint
                             sendBuffer[15] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
                             received.RemoveRange(0, 20);
                             stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
-                            log("客户端曰：{" + BitConverter.ToString(sendBuffer) + "}\n");
                             setLog(sendBuffer, 1, index.ToString());
-                            Interlocked.Increment(ref openCount);
                             isAuthenticated = true;
+                            
                         }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    log("服务已经断开!\n");
+                    Interlocked.Decrement(ref openCount);
+                    //MessageBox.Show(ex.Message);
                 }
             }
 
@@ -481,7 +532,6 @@ namespace virtualPrint
                 thread2.Start(new object[] { sendStream2, tcp2, thread2, sn, bw, st });
 
                 byte[] data = Encoding.GetEncoding("GBK").GetBytes(sn);
-                log("客户端曰：{" + BitConverter.ToString(data) + "}\n");
                 setLog(data, 5, sn);
                 sendStream2.Write(data, 0, data.Length);
             }
@@ -559,7 +609,6 @@ namespace virtualPrint
                                         string stl = len[le] + "" + len[le + 1];
                                         data[15 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
                                     }
-                                    log("客户端曰" + sn + "：{" + BitConverter.ToString(data) + "}\n");
                                     setLog(data, 3, sn);
 
                                     sendStream2.Write(data, 0, data.Length);
@@ -576,12 +625,17 @@ namespace virtualPrint
                     }
                     catch (Exception ex)
                     {
-                        log(ex.Message+"\n");
+                        MessageBox.Show(ex.Message);
 
                     }
                     //将缓存中的数据写入传输流
                 } while (true);
             }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            BeginInvoke(new retext(textBox3.AppendText), "连接总数：" + Print.openCount+" 已认证数:"+Print.conncedCount + "\r\n");
         }
     }
 }
