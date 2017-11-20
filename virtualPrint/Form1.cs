@@ -237,6 +237,11 @@ namespace virtualPrint
            
             private volatile bool closed;
 
+            public string sn()
+            {
+                return index.ToString("N");
+            }
+
             public void Close()
             {
                 closed = true;
@@ -345,7 +350,7 @@ namespace virtualPrint
                         received.AddRange(tmp);
                         if (tmp[4] != 3)
                         {
-                            setLog(tmp, 2, index.ToString());
+                            setLog(tmp, 2, sn());
                         }
                     }
                 }
@@ -440,13 +445,13 @@ namespace virtualPrint
                             stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                             if (sendBuffer[4] != 4)
                             {
-                                setLog(sendBuffer, 1, index.ToString());
+                                setLog(sendBuffer, 1, sn());
                             }
                            
                         }
                         else if(receiveBuffer[4]==7)
                         {
-                            openTcp2(index.ToString());
+                            openTcp2(sn());
                         }
                     }
                 }
@@ -486,7 +491,7 @@ namespace virtualPrint
                             int count = (received[19] << 8) + received[18];
                             StringBuilder ss = new StringBuilder();
                             ss.Append("key=" + count + "\r\n");
-                            ss.Append("sn=" + index + "\r\n");
+                            ss.Append("sn=" + sn() + "\r\n");
                             ss.Append("model=DD-199\r\n");
                             ss.Append("PROTOCOLVER=1.2\r\n");
                             ss.Append("LANGUAGE=ESC\r\n");
@@ -504,7 +509,7 @@ namespace virtualPrint
                             sendBuffer[15] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
                             received.RemoveRange(0, 20);
                             stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
-                            setLog(sendBuffer, 1, index.ToString());
+                            setLog(sendBuffer, 1, sn());
                             isAuthenticated = true;
                             
                         }
@@ -518,9 +523,7 @@ namespace virtualPrint
 
             private void openTcp2(string sn)
             {
-
                 TcpClient tcp2 = new TcpClient();
-
                 tcp2.Connect(ip, port2);
                 NetworkStream sendStream2 = tcp2.GetStream();
                 Thread thread2 = new Thread(ListenerServer2);
