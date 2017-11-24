@@ -40,11 +40,11 @@ namespace virtualPrint
                             int dataPort = Int32.Parse(textBox4.Text);
                             int numPrinters = Int32.Parse(textBox5.Text);
 
-                            List<Guid> li = new List<Guid>();
-                            Guid sn ;
+                            List<int> li = new List<int>();
+                            Random ra=new Random();
                             for (int i = 0; i < numPrinters; )
                             {
-                                sn = Guid.NewGuid();
+                                int sn  = ra.Next(10000000,90000000);
                                 if (li.Contains(sn))
                                 {
                                     continue;
@@ -92,7 +92,7 @@ namespace virtualPrint
         static bool showCount = false;
         private void Form1_Load(object sender, EventArgs e)
         {
-           
+            this.lb_banben.Text = "V3.1";
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -201,7 +201,7 @@ namespace virtualPrint
 
         public class Print
         {
-            public Print(Guid index, IPAddress ip, int port1, int port2, retext logger)
+            public Print(int index, IPAddress ip, int port1, int port2, retext logger)
             {
                 this.ip = ip;
                 this.index = index;
@@ -219,7 +219,7 @@ namespace virtualPrint
             }
             public static List<Print> dic = new List<Print>();
             public static Random RD = new Random();
-            public Guid index;
+            public int index;
             public int port1;
             public TcpClient client;
             public NetworkStream stream;
@@ -239,7 +239,7 @@ namespace virtualPrint
 
             public string sn()
             {
-                return index.ToString("N");
+                return index.ToString();
             }
 
             public void Close()
@@ -396,19 +396,19 @@ namespace virtualPrint
             public void HandleNormalData(int read)
             {
 
-                if (received.Count >= 16)
+                if (received.Count >= 20)
                 {
                     isBeat = true;
                     int bodySize =
-                        received[12] +
-                        received[13] * 256 +
-                        received[14] * 256 * 256 +
-                        received[15] * 256 * 256 * 256;
-                    if (received.Count >= 16 + bodySize)
+                        received[16] +
+                        received[17] * 256 +
+                        received[18] * 256 * 256 +
+                        received[19] * 256 * 256 * 256;
+                    if (received.Count >= 20 + bodySize)
                     {
-                        var msg = new byte[16 + bodySize];
-                        received.CopyTo(0, msg, 0, 16 + bodySize);
-                        received.RemoveRange(0, 16 + bodySize);
+                        var msg = new byte[20 + bodySize];
+                        received.CopyTo(0, msg, 0, 20 + bodySize);
+                        received.RemoveRange(0, 20 + bodySize);
                         hearbeat = true;
                         stateTo(hearbeat);
                         if (receiveBuffer[4] == 3 || receiveBuffer[4] == 5)
@@ -427,9 +427,9 @@ namespace virtualPrint
                             {
                                 ssbytes = Encoding.GetEncoding("utf-8").GetBytes(RD.Next(1000).ToString());
                             }
-                            var sendBuffer = new byte[16 + ssbytes.Length];
-                            Array.Copy(msg, 0, sendBuffer, 0, 16);
-                            Array.Copy(ssbytes, 0, sendBuffer, 16, ssbytes.Length);
+                            var sendBuffer = new byte[20 + ssbytes.Length];
+                            Array.Copy(msg, 0, sendBuffer, 0, 20);
+                            Array.Copy(ssbytes, 0, sendBuffer, 20, ssbytes.Length);
                             if (receiveBuffer[4] == 3)
                             {
                                 sendBuffer[4] = 4;
@@ -438,10 +438,10 @@ namespace virtualPrint
                             {
                                 sendBuffer[4] = 6;
                             }
-                            sendBuffer[12] = (byte)(ssbytes.Length & 0xFF);
-                            sendBuffer[13] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                            sendBuffer[14] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                            sendBuffer[15] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
+                            sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
+                            sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
+                            sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
+                            sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
                             stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                             if (sendBuffer[4] != 4)
                             {
@@ -470,10 +470,10 @@ namespace virtualPrint
                 try
                 {
                     
-                        if (received.Count >= 20)
+                        if (received.Count >= 24)
                         {
                             isBeat = true;
-                            int time = ((received[16] << 8) + received[17]) * 2000;
+                            int time = ((received[21] << 8) + received[20]) * 2000;
                             ti.Enabled = true;
                             ti.Interval = time;
                             ti.Elapsed += ((o, e) =>
@@ -488,7 +488,7 @@ namespace virtualPrint
                                     isBeat = false;
                                 }
                             });
-                            int count = (received[19] << 8) + received[18];
+                            int count = (received[23] << 8) + received[22];
                             StringBuilder ss = new StringBuilder();
                             ss.Append("key=" + count + "\r\n");
                             ss.Append("sn=" + sn() + "\r\n");
@@ -499,14 +499,14 @@ namespace virtualPrint
                             ss.Append("ydpi=365\r\n");
                             ss.Append("pageWidth=981");
                             var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
-                            var sendBuffer = new byte[16 + ssbytes.Length];
-                            received.CopyTo(0, sendBuffer, 0, 16);
+                            var sendBuffer = new byte[20 + ssbytes.Length];
+                            received.CopyTo(0, sendBuffer, 0, 20);
                             Array.Copy(ssbytes, 0, sendBuffer, 16, ssbytes.Length);
                             sendBuffer[4] = 2;
-                            sendBuffer[12] = (byte)(ssbytes.Length & 0xFF);
-                            sendBuffer[13] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                            sendBuffer[14] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                            sendBuffer[15] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
+                            sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
+                            sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
+                            sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
+                            sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
                             received.RemoveRange(0, 20);
                             stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                             setLog(sendBuffer, 1, sn());
@@ -530,7 +530,6 @@ namespace virtualPrint
                 Stream st = new FileStream(@"./wenben/" + sn + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create);
                 BinaryWriter bw = new BinaryWriter(st);
                 thread2.Start(new object[] { sendStream2, tcp2, thread2, sn, bw, st });
-
                 byte[] data = Encoding.GetEncoding("GBK").GetBytes(sn);
                 setLog(data, 5, sn);
                 sendStream2.Write(data, 0, data.Length);
@@ -581,21 +580,21 @@ namespace virtualPrint
                                     Random ran = new Random();
                                     sql.Append("" + ran.Next(4000));
                                     byte[] dataStr = Encoding.GetEncoding("utf-8").GetBytes(sql.ToString());
-                                    data = new byte[16 + dataStr.Length];
+                                    data = new byte[20 + dataStr.Length];
                                     for (int i = 0; i < data.Length; i++)
                                     {
-                                        if (i < 16)
+                                        if (i < 20)
                                         {
                                             data[i] = buffer[i];
                                         }
                                         else
                                         {
-                                            data[i] = dataStr[i - 16];
+                                            data[i] = dataStr[i - 20];
                                         }
                                     }
                                     data[4] = 0x0A;
                                     //长度替换方法
-                                    string len = Convert.ToString(dataStr.Length, 16);
+                                    string len = Convert.ToString(dataStr.Length, 20);
                                     if (len.Length < 8)
                                     {
                                         int num = 8 - len.Length;
@@ -607,7 +606,7 @@ namespace virtualPrint
                                     for (int le = 0; le < len.Length; le += 2)
                                     {
                                         string stl = len[le] + "" + len[le + 1];
-                                        data[15 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
+                                        data[19 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
                                     }
                                     setLog(data, 3, sn);
 
@@ -625,7 +624,6 @@ namespace virtualPrint
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(ex.Message);
 
                     }
                     //将缓存中的数据写入传输流
