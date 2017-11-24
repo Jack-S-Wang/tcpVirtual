@@ -92,7 +92,7 @@ namespace virtualPrint
         static bool showCount = false;
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V3.1";
+            this.lb_banben.Text = "V3.2";
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -501,7 +501,7 @@ namespace virtualPrint
                             var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
                             var sendBuffer = new byte[20 + ssbytes.Length];
                             received.CopyTo(0, sendBuffer, 0, 20);
-                            Array.Copy(ssbytes, 0, sendBuffer, 16, ssbytes.Length);
+                            Array.Copy(ssbytes, 0, sendBuffer, 20, ssbytes.Length);
                             sendBuffer[4] = 2;
                             sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
                             sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
