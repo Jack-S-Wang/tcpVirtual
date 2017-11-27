@@ -92,7 +92,7 @@ namespace virtualPrint
         static bool showCount = false;
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V3.2";
+            this.lb_banben.Text = "V3.3";
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -168,10 +168,10 @@ namespace virtualPrint
         public static void setLog2(byte[] data, string sn, BinaryWriter bw)
         {
             //以二进制的方式写的一个二进制文件
-            byte[] dataNew = new byte[data.Length - 16];
+            byte[] dataNew = new byte[data.Length - 20];
             for (int i = 0; i < dataNew.Length; i++)
             {
-                dataNew[i] = data[i + 16];
+                dataNew[i] = data[i + 20];
             }
             bw.Write(dataNew);
         }
@@ -234,7 +234,7 @@ namespace virtualPrint
             public IPAddress ip;
             public bool isBeat = false;
             public event retext OnPrintLog;
-           
+            public readonly int HEADER_LENGTH = 20;
             private volatile bool closed;
 
             public string sn()
@@ -380,7 +380,7 @@ namespace virtualPrint
                 }
                 catch (Exception ex)
                 {
-                    throw ex;
+                    MessageBox.Show(ex.Message);
                 }
                 try
                 {
@@ -388,7 +388,7 @@ namespace virtualPrint
                 }
                 catch (Exception ex)
                 {
-                    throw ex;
+                    MessageBox.Show(ex.Message);
                 }
                
             }
@@ -396,7 +396,7 @@ namespace virtualPrint
             public void HandleNormalData(int read)
             {
 
-                if (received.Count >= 20)
+                if (received.Count >= HEADER_LENGTH)
                 {
                     isBeat = true;
                     int bodySize =
@@ -406,9 +406,9 @@ namespace virtualPrint
                         received[19] * 256 * 256 * 256;
                     if (received.Count >= 20 + bodySize)
                     {
-                        var msg = new byte[20 + bodySize];
-                        received.CopyTo(0, msg, 0, 20 + bodySize);
-                        received.RemoveRange(0, 20 + bodySize);
+                        var msg = new byte[HEADER_LENGTH + bodySize];
+                        received.CopyTo(0, msg, 0, HEADER_LENGTH + bodySize);
+                        received.RemoveRange(0, HEADER_LENGTH + bodySize);
                         hearbeat = true;
                         stateTo(hearbeat);
                         if (receiveBuffer[4] == 3 || receiveBuffer[4] == 5)
@@ -427,16 +427,19 @@ namespace virtualPrint
                             {
                                 ssbytes = Encoding.GetEncoding("utf-8").GetBytes(RD.Next(1000).ToString());
                             }
-                            var sendBuffer = new byte[20 + ssbytes.Length];
-                            Array.Copy(msg, 0, sendBuffer, 0, 20);
-                            Array.Copy(ssbytes, 0, sendBuffer, 20, ssbytes.Length);
+                            var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
+                            Array.Copy(msg, 0, sendBuffer, 0, HEADER_LENGTH);
+                            Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
                             if (receiveBuffer[4] == 3)
                             {
                                 sendBuffer[4] = 4;
                             }
                             else
                             {
+                                int rt=RD.Next(0,1000);
                                 sendBuffer[4] = 6;
+                                sendBuffer[12] = (byte)(rt );
+                                sendBuffer[13] = (byte)(rt>>8);
                             }
                             sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
                             sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
@@ -465,54 +468,54 @@ namespace virtualPrint
                 }
                 state = tag;
             }
+
             public void HandleAuthentication(int read)
             {
                 try
                 {
-                    
-                        if (received.Count >= 24)
+                    if (received.Count >= 24)
+                    {
+                        isBeat = true;
+                        int time = ((received[21] << 8) + received[20]) * 2000;
+                        ti.Enabled = true;
+                        ti.Interval = time;
+                        ti.Elapsed += ((o, e) =>
                         {
-                            isBeat = true;
-                            int time = ((received[21] << 8) + received[20]) * 2000;
-                            ti.Enabled = true;
-                            ti.Interval = time;
-                            ti.Elapsed += ((o, e) =>
+                            if (!isBeat)
                             {
-                                if (!isBeat)
-                                {
-                                    client.Close();
-                                    stream.Close();
-                                }
-                                else
-                                {
-                                    isBeat = false;
-                                }
-                            });
-                            int count = (received[23] << 8) + received[22];
-                            StringBuilder ss = new StringBuilder();
-                            ss.Append("key=" + count + "\r\n");
-                            ss.Append("sn=" + sn() + "\r\n");
-                            ss.Append("model=DD-199\r\n");
-                            ss.Append("PROTOCOLVER=1.2\r\n");
-                            ss.Append("LANGUAGE=ESC\r\n");
-                            ss.Append("xdpi=132\r\n");
-                            ss.Append("ydpi=365\r\n");
-                            ss.Append("pageWidth=981");
-                            var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
-                            var sendBuffer = new byte[20 + ssbytes.Length];
-                            received.CopyTo(0, sendBuffer, 0, 20);
-                            Array.Copy(ssbytes, 0, sendBuffer, 20, ssbytes.Length);
-                            sendBuffer[4] = 2;
-                            sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
-                            sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                            sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                            sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
-                            received.RemoveRange(0, 20);
-                            stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
-                            setLog(sendBuffer, 1, sn());
-                            isAuthenticated = true;
-                            
-                        }
+                                client.Close();
+                                stream.Close();
+                            }
+                            else
+                            {
+                                isBeat = false;
+                            }
+                        });
+                        int count = (received[23] << 8) + received[22];
+                        StringBuilder ss = new StringBuilder();
+                        ss.Append("key=" + count + "\r\n");
+                        ss.Append("sn=" + sn() + "\r\n");
+                        ss.Append("model=DD-199\r\n");
+                        ss.Append("PROTOCOLVER=1.2\r\n");
+                        ss.Append("LANGUAGE=ESC\r\n");
+                        ss.Append("xdpi=132\r\n");
+                        ss.Append("ydpi=365\r\n");
+                        ss.Append("pageWidth=981");
+                        var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
+                        var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
+                        received.CopyTo(0, sendBuffer, 0, HEADER_LENGTH);
+                        Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
+                        sendBuffer[4] = 2;
+                        sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
+                        sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
+                        sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
+                        sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
+                        received.RemoveRange(0, 24);
+                        setLog(sendBuffer, 1, sn());
+                        stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
+                        isAuthenticated = true;
+
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -580,21 +583,21 @@ namespace virtualPrint
                                     Random ran = new Random();
                                     sql.Append("" + ran.Next(4000));
                                     byte[] dataStr = Encoding.GetEncoding("utf-8").GetBytes(sql.ToString());
-                                    data = new byte[20 + dataStr.Length];
+                                    data = new byte[HEADER_LENGTH + dataStr.Length];
                                     for (int i = 0; i < data.Length; i++)
                                     {
-                                        if (i < 20)
+                                        if (i < HEADER_LENGTH)
                                         {
                                             data[i] = buffer[i];
                                         }
                                         else
                                         {
-                                            data[i] = dataStr[i - 20];
+                                            data[i] = dataStr[i - HEADER_LENGTH];
                                         }
                                     }
                                     data[4] = 0x0A;
                                     //长度替换方法
-                                    string len = Convert.ToString(dataStr.Length, 20);
+                                    string len = Convert.ToString(dataStr.Length, 16);
                                     if (len.Length < 8)
                                     {
                                         int num = 8 - len.Length;
