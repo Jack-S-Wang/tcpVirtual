@@ -92,7 +92,7 @@ namespace virtualPrint
         static bool showCount = false;
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V3.3";
+            this.lb_banben.Text = "V3.4";
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -131,7 +131,7 @@ namespace virtualPrint
 
                 if (type == 1)
                 {
-                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n"); 
                 }
                 else if (type == 2)
                 {
@@ -211,7 +211,6 @@ namespace virtualPrint
                 client = new TcpClient();
                 receiveBuffer = new byte[1024];
                 received = new List<byte>();
-                isAuthenticated = false;
                 closed = false;
                 hearbeat = false;
                 client.BeginConnect(ip, port1, OnConnectComplete, null);
@@ -225,7 +224,6 @@ namespace virtualPrint
             public NetworkStream stream;
             public List<byte> received;
             public byte[] receiveBuffer;
-            public bool isAuthenticated;
             public static volatile int openCount = 0;
             public  bool hearbeat;
             public bool state = false;
@@ -236,6 +234,7 @@ namespace virtualPrint
             public event retext OnPrintLog;
             public readonly int HEADER_LENGTH = 20;
             private volatile bool closed;
+            public int count = 0;
 
             public string sn()
             {
@@ -331,6 +330,7 @@ namespace virtualPrint
                     return;
                 }
                 int readcount = 0;
+                
                 try
                 {
                     var read = stream.EndRead(ar);
@@ -343,9 +343,8 @@ namespace virtualPrint
                         return;
                     }
                     readcount = read;
-
-                    {
-                        var tmp = new byte[read];
+                    var tmp = new byte[read];
+                    { 
                         Array.Copy(receiveBuffer, tmp, read);
                         received.AddRange(tmp);
                         if (tmp[4] != 3)
@@ -369,8 +368,9 @@ namespace virtualPrint
                 }
                 try
                 {
-                    if (isAuthenticated)
+                    if (received[4] != 1)
                     {
+
                         HandleNormalData(readcount);
                     }
                     else
@@ -395,68 +395,38 @@ namespace virtualPrint
 
             public void HandleNormalData(int read)
             {
-
-                if (received.Count >= HEADER_LENGTH)
+                var sendData = setHeand();
+                byte[] ssbytes;
+                if (sendData[4] == 4)
                 {
-                    isBeat = true;
-                    int bodySize =
-                        received[16] +
-                        received[17] * 256 +
-                        received[18] * 256 * 256 +
-                        received[19] * 256 * 256 * 256;
-                    if (received.Count >= 20 + bodySize)
-                    {
-                        var msg = new byte[HEADER_LENGTH + bodySize];
-                        received.CopyTo(0, msg, 0, HEADER_LENGTH + bodySize);
-                        received.RemoveRange(0, HEADER_LENGTH + bodySize);
-                        hearbeat = true;
-                        stateTo(hearbeat);
-                        if (receiveBuffer[4] == 3 || receiveBuffer[4] == 5)
-                        {
-                            byte[] ssbytes;
-                            if (receiveBuffer[4] == 3)
-                            {
-                                StringBuilder ss = new StringBuilder();
-                                ss.Append("ready\r\n");
-                                ss.Append("\r\n");
-                                ss.Append("" + RD.Next(4000));
-                                ssbytes = Encoding.GetEncoding("UTF-8")
-                                    .GetBytes(ss.ToString());
-                            }
-                            else
-                            {
-                                ssbytes = Encoding.GetEncoding("utf-8").GetBytes(RD.Next(1000).ToString());
-                            }
-                            var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
-                            Array.Copy(msg, 0, sendBuffer, 0, HEADER_LENGTH);
-                            Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
-                            if (receiveBuffer[4] == 3)
-                            {
-                                sendBuffer[4] = 4;
-                            }
-                            else
-                            {
-                                int rt=RD.Next(0,1000);
-                                sendBuffer[4] = 6;
-                                sendBuffer[12] = (byte)(rt );
-                                sendBuffer[13] = (byte)(rt>>8);
-                            }
-                            sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
-                            sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                            sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                            sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
-                            stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
-                            if (sendBuffer[4] != 4)
-                            {
-                                setLog(sendBuffer, 1, sn());
-                            }
-                           
-                        }
-                        else if(receiveBuffer[4]==7)
-                        {
-                            openTcp2(sn());
-                        }
-                    }
+                    StringBuilder ss = new StringBuilder();
+                    ss.Append("ready\r\n");
+                    ss.Append("\r\n");
+                    ss.Append("" + RD.Next(4000));
+                    ssbytes = Encoding.GetEncoding("UTF-8")
+                        .GetBytes(ss.ToString());
+                }
+                else
+                {
+                    ssbytes = Encoding.GetEncoding("utf-8").GetBytes(RD.Next(1000).ToString());
+                }
+                var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
+                Array.Copy(sendData, 0, sendBuffer, 0, HEADER_LENGTH);
+                Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
+                if (sendData[4] == 6)
+                {
+                    int snIndex=Int32.Parse(sn().Substring(sn().Length - 4));
+                    sendBuffer[12] = (byte)(snIndex);
+                    sendBuffer[13] = (byte)(snIndex >> 8);
+                }
+                sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
+                sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
+                sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
+                sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
+                stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
+                if (sendBuffer[4] != 4)
+                {
+                    setLog(sendBuffer, 1, sn());
                 }
             }
             private void stateTo(bool tag)
@@ -473,7 +443,40 @@ namespace virtualPrint
             {
                 try
                 {
-                    if (received.Count >= 24)
+                    var sendData=setHeand();
+                    StringBuilder ss = new StringBuilder();
+                    ss.Append("key=" + count + "\r\n");
+                    ss.Append("sn=" + sn() + "\r\n");
+                    ss.Append("model=DD-199\r\n");
+                    ss.Append("PROTOCOLVER=1.2\r\n");
+                    ss.Append("LANGUAGE=ESC\r\n");
+                    ss.Append("xdpi=132\r\n");
+                    ss.Append("ydpi=365\r\n");
+                    ss.Append("pageWidth=981");
+                    var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
+                    var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
+                    Array.Copy(sendData, 0, sendBuffer, 0, HEADER_LENGTH);
+                    Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
+                    sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
+                    sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
+                    sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
+                    sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
+                    setLog(sendBuffer, 1, sn());
+                    stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
+                }
+                catch (Exception ex)
+                {
+                    Interlocked.Decrement(ref openCount);
+                    //MessageBox.Show(ex.Message);
+                }
+            }
+
+            private byte[] setHeand()
+            {
+                lock (objectLock)
+                {
+                    byte[] sendBuffer = new byte[HEADER_LENGTH];
+                    if (received[4] == 1)
                     {
                         isBeat = true;
                         int time = ((received[21] << 8) + received[20]) * 2000;
@@ -491,36 +494,41 @@ namespace virtualPrint
                                 isBeat = false;
                             }
                         });
-                        int count = (received[23] << 8) + received[22];
-                        StringBuilder ss = new StringBuilder();
-                        ss.Append("key=" + count + "\r\n");
-                        ss.Append("sn=" + sn() + "\r\n");
-                        ss.Append("model=DD-199\r\n");
-                        ss.Append("PROTOCOLVER=1.2\r\n");
-                        ss.Append("LANGUAGE=ESC\r\n");
-                        ss.Append("xdpi=132\r\n");
-                        ss.Append("ydpi=365\r\n");
-                        ss.Append("pageWidth=981");
-                        var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
-                        var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
+                        count = (received[23] << 8) + received[22];
+                        received[4] = 2;
                         received.CopyTo(0, sendBuffer, 0, HEADER_LENGTH);
-                        Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
-                        sendBuffer[4] = 2;
-                        sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
-                        sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                        sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                        sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
-                        received.RemoveRange(0, 24);
-                        setLog(sendBuffer, 1, sn());
-                        stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
-                        isAuthenticated = true;
-
+                        received.RemoveRange(0, received.Count);
+                        return sendBuffer;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Interlocked.Decrement(ref openCount);
-                    //MessageBox.Show(ex.Message);
+                    else
+                    {
+                        isBeat = true;
+                        int bodySize =
+                            received[16] +
+                            received[17] * 256 +
+                            received[18] * 256 * 256 +
+                            received[19] * 256 * 256 * 256;
+                        if (received.Count >= HEADER_LENGTH + bodySize)
+                        {
+                            if (received[4] == 3)
+                            {
+                                hearbeat = true;
+                                stateTo(hearbeat);
+                                received[4] = 4;
+                            }
+                            else if (received[4] == 5)
+                            {
+                                received[4] = 6;
+                            }
+                            else if (received[4] == 7)
+                            {
+                                openTcp2(sn());
+                            }
+                            received.CopyTo(0, sendBuffer, 0, HEADER_LENGTH);
+                            received.RemoveRange(0, received.Count);
+                        }
+                        return sendBuffer;
+                    }
                 }
             }
 
