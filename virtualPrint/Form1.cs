@@ -89,10 +89,10 @@ namespace virtualPrint
                 }
             }
         }
-        static bool showCount = false;
+       
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V3.4";
+            this.lb_banben.Text = "V3.5";
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -178,7 +178,7 @@ namespace virtualPrint
 
         public void addText(string str)
         {
-           
+            textBox3.AppendText(str);
         }
 
        
@@ -380,7 +380,7 @@ namespace virtualPrint
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message);
+                    log("出现一个未知的错误信息！");
                 }
                 try
                 {
@@ -388,7 +388,7 @@ namespace virtualPrint
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message);
+                    log("服务器可能已经关闭该连接！");
                 }
                
             }
@@ -635,7 +635,7 @@ namespace virtualPrint
                     }
                     catch (Exception ex)
                     {
-
+                        log("关闭了数据通道!");
                     }
                     //将缓存中的数据写入传输流
                 } while (true);
