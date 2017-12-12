@@ -51,6 +51,8 @@
             this.txb_endNum = new System.Windows.Forms.TextBox();
             this.lb_num = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
+            this.label8 = new System.Windows.Forms.Label();
+            this.txb_jinzhi = new System.Windows.Forms.TextBox();
             this.panel1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -92,6 +94,8 @@
             // 
             // groupBox2
             // 
+            this.groupBox2.Controls.Add(this.txb_jinzhi);
+            this.groupBox2.Controls.Add(this.label8);
             this.groupBox2.Controls.Add(this.label7);
             this.groupBox2.Controls.Add(this.lb_num);
             this.groupBox2.Controls.Add(this.txb_endNum);
@@ -110,7 +114,7 @@
             // 
             // button3
             // 
-            this.button3.Location = new System.Drawing.Point(344, 43);
+            this.button3.Location = new System.Drawing.Point(204, 43);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(75, 23);
             this.button3.TabIndex = 7;
@@ -121,7 +125,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(403, 91);
+            this.label5.Location = new System.Drawing.Point(382, 48);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(23, 12);
             this.label5.TabIndex = 6;
@@ -247,7 +251,6 @@
             // 
             this.txb_startNnm.Location = new System.Drawing.Point(69, 88);
             this.txb_startNnm.Name = "txb_startNnm";
-            this.txb_startNnm.ReadOnly = true;
             this.txb_startNnm.Size = new System.Drawing.Size(100, 21);
             this.txb_startNnm.TabIndex = 8;
             this.txb_startNnm.Text = "00171211000000";
@@ -258,14 +261,14 @@
             this.txb_endNum.Name = "txb_endNum";
             this.txb_endNum.Size = new System.Drawing.Size(100, 21);
             this.txb_endNum.TabIndex = 9;
-            this.txb_endNum.Text = "00171211900000";
+            this.txb_endNum.Text = "001712119000000";
             this.txb_endNum.TextChanged += new System.EventHandler(this.txb_endNum_TextChanged);
             this.txb_endNum.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txb_endNum_KeyPress);
             // 
             // lb_num
             // 
             this.lb_num.AutoSize = true;
-            this.lb_num.Location = new System.Drawing.Point(342, 91);
+            this.lb_num.Location = new System.Drawing.Point(321, 48);
             this.lb_num.Name = "lb_num";
             this.lb_num.Size = new System.Drawing.Size(41, 12);
             this.lb_num.TabIndex = 10;
@@ -279,6 +282,23 @@
             this.label7.Size = new System.Drawing.Size(17, 12);
             this.label7.TabIndex = 11;
             this.label7.Text = "--";
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(309, 91);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(53, 12);
+            this.label8.TabIndex = 12;
+            this.label8.Text = "进制递增";
+            // 
+            // txb_jinzhi
+            // 
+            this.txb_jinzhi.Location = new System.Drawing.Point(371, 87);
+            this.txb_jinzhi.Name = "txb_jinzhi";
+            this.txb_jinzhi.Size = new System.Drawing.Size(51, 21);
+            this.txb_jinzhi.TabIndex = 13;
+            this.txb_jinzhi.Text = "16";
             // 
             // Form1
             // 
@@ -331,6 +351,8 @@
         private System.Windows.Forms.TextBox txb_endNum;
         private System.Windows.Forms.TextBox txb_startNnm;
         private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.TextBox txb_jinzhi;
     }
 }
 

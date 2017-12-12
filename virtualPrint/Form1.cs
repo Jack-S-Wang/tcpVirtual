@@ -33,34 +33,46 @@ namespace virtualPrint
                 {
                     if (textBox1.Text != "" && textBox2.Text != "" && txb_startNnm.Text != "")
                     {
+                        string dataS = "";
+                        string dataE = "";
                         if (txb_endNum.Text == "")
                         {
                             txb_endNum.Text = txb_startNnm.Text;
+                            dataS = txb_startNnm.Text.Substring(txb_startNnm.Text.Length - 6);
+                            dataE = txb_endNum.Text.Substring(txb_endNum.Text.Length - 6);
                         }
                         else
                         {
-                            if (!txb_endNum.Text.Contains("00171211") || txb_endNum.Text.Length != 14)
-                            {
-                                MessageBox.Show("输入编号的格式不一致！");
-                                return;
-                            }
-                            if (UInt64.Parse(txb_endNum.Text) < UInt64.Parse(txb_startNnm.Text))
+                            dataS = txb_startNnm.Text.Substring(txb_startNnm.Text.Length - 6);
+                            dataE = txb_endNum.Text.Substring(txb_endNum.Text.Length - 6);
+                            if (Convert.ToUInt16(dataE, 16) < Convert.ToUInt16(dataS, 16))
                             {
                                 MessageBox.Show("编号不能小于设置的最小编号值！");
                                 return;
                             }
                         }
+                        ushort numPrinters = (ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16) + 1);
+                        this.lb_num.Text = numPrinters.ToString();
+                        IPAddress ip = IPAddress.Parse(textBox1.Text);
+                        int controlPort = Int32.Parse(textBox2.Text);
+                        int dataPort = Int32.Parse(textBox4.Text);
+                        int jinPort = Int32.Parse(txb_jinzhi.Text);
+                        int needNum = Int32.Parse(lb_num.Text);
+                        string number = txb_startNnm.Text;
                         (new Thread(() =>
                         {
-                            IPAddress ip = IPAddress.Parse(textBox1.Text);
-                            int controlPort = Int32.Parse(textBox2.Text);
-                            int dataPort = Int32.Parse(textBox4.Text);
                             Random ra = new Random();
-                            for (ulong i = 0; i < (UInt64.Parse(lb_num.Text)); i++)
+                            for (int i = 0; i < needNum; i++)
                             {
-                                var num = UInt64.Parse(txb_startNnm.Text);
-                                var n = num + i;
-                                string number = "00"+n.ToString();
+                                string numstr=number.Substring(number.Length - 6);
+                                string str = "";
+                                if (jinPort == 16)
+                                {
+                                    ushort num = Convert.ToUInt16(numstr, 16);
+                                    num = (ushort)(num + i);
+                                    str= Convert.ToString(num, jinPort);
+                                }
+                                number = number.Substring(0, number.Length - str.Length) + str;
                                 int sn = ra.Next(10000000, 90000000);
                                 new Print(sn, ip, controlPort, dataPort, addTextAsync, number);
                             }
@@ -370,7 +382,7 @@ namespace virtualPrint
                         received.AddRange(tmp);
                         if (tmp[4] != 3)
                         {
-                            setLog(tmp, 2, sn());
+                            setLog(tmp, 2, number);
                         }
                     }
                 }
@@ -545,7 +557,7 @@ namespace virtualPrint
                             }
                             else if (received[4] == 7)
                             {
-                                openTcp2(sn());
+                                openTcp2(number);
                             }
                             received.CopyTo(0, sendBuffer, 0, HEADER_LENGTH);
                             received.RemoveRange(0, received.Count);
@@ -672,19 +684,27 @@ namespace virtualPrint
 
         private void txb_endNum_KeyPress(object sender, KeyPressEventArgs e)
         {
-            if ((e.KeyChar < 48 || e.KeyChar > 57) && e.KeyChar != 8)
-            {
-                e.Handled = true;
-            }
+            //if ((e.KeyChar < 48 || e.KeyChar > 57) && e.KeyChar != 8)
+            //{
+            //    e.Handled = true;
+            //}
         }
 
         private void txb_endNum_TextChanged(object sender, EventArgs e)
         {
-            if (txb_endNum.Text.Length >= 14)
-            {
-                ulong numPrinters = UInt64.Parse(txb_endNum.Text) - UInt64.Parse(txb_startNnm.Text) + 1;
-                this.lb_num.Text = numPrinters.ToString();
-            }
+            //if (txb_endNum.Text.Length > 14)
+            //{
+
+            //    string dataS=txb_startNnm.Text.Substring(txb_startNnm.Text.Length - 6);
+            //    string dataE=txb_endNum.Text.Substring(txb_endNum.Text.Length - 6);
+            //   if (Convert.ToUInt16(dataE,16)< Convert.ToUInt16(dataS, 16))
+            //    {
+            //        MessageBox.Show("编号不能小于设置的最小编号值！");
+            //        return;
+            //    }
+            //    ushort numPrinters =(ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16) + 1);
+            //    this.lb_num.Text = numPrinters.ToString();
+            //}
         }
     }
 }
