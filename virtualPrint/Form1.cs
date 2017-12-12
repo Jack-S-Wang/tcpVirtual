@@ -31,30 +31,41 @@ namespace virtualPrint
             {
                 if (Print.dic.Count == 0)
                 {
-                    if (textBox1.Text != "" && textBox2.Text != "" && textBox5.Text != "")
+                    if (textBox1.Text != "" && textBox2.Text != "" && txb_startNnm.Text != "")
                     {
+                        if (txb_endNum.Text == "")
+                        {
+                            txb_endNum.Text = txb_startNnm.Text;
+                        }
+                        else
+                        {
+                            if (!txb_endNum.Text.Contains("00171211") || txb_endNum.Text.Length != 14)
+                            {
+                                MessageBox.Show("输入编号的格式不一致！");
+                                return;
+                            }
+                            if (UInt64.Parse(txb_endNum.Text) < UInt64.Parse(txb_startNnm.Text))
+                            {
+                                MessageBox.Show("编号不能小于设置的最小编号值！");
+                                return;
+                            }
+                        }
                         (new Thread(() =>
                         {
                             IPAddress ip = IPAddress.Parse(textBox1.Text);
                             int controlPort = Int32.Parse(textBox2.Text);
                             int dataPort = Int32.Parse(textBox4.Text);
-                            int numPrinters = Int32.Parse(textBox5.Text);
-
-                            List<int> li = new List<int>();
-                            Random ra=new Random();
-                            for (int i = 0; i < numPrinters; )
+                            Random ra = new Random();
+                            for (ulong i = 0; i < (UInt64.Parse(lb_num.Text)); i++)
                             {
-                                int sn  = ra.Next(10000000,90000000);
-                                if (li.Contains(sn))
-                                {
-                                    continue;
-                                }
-                                li.Add(sn);
-                                i++;
-                                new Print(sn, ip, controlPort, dataPort, addTextAsync);
+                                var num = UInt64.Parse(txb_startNnm.Text);
+                                var n = num + i;
+                                string number = "00"+n.ToString();
+                                int sn = ra.Next(10000000, 90000000);
+                                new Print(sn, ip, controlPort, dataPort, addTextAsync, number);
                             }
                         })).Start();
-                        
+
                     }
                     else
                     {
@@ -85,14 +96,20 @@ namespace virtualPrint
                     }
                     Print.conncedCount = 0;
                     Print.openCount = 0;
+                    Print.connCount = 0;
                     Print.dic.Clear();
                 }
             }
         }
-       
+
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V3.5";
+            this.lb_banben.Text = "V4.0";
+            ToolTip tool = new ToolTip();
+            tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
+            tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
+            ulong numPrinters = UInt64.Parse(txb_endNum.Text) - UInt64.Parse(txb_startNnm.Text) + 1;
+            this.lb_num.Text = numPrinters.ToString();
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -112,9 +129,10 @@ namespace virtualPrint
                     foreach (var keyValue in Print.dic)
                     {
                         keyValue.Close();
-                      
+
                     }
                     Print.conncedCount = 0;
+
                     Print.dic.Clear();
                 }
             }
@@ -131,7 +149,7 @@ namespace virtualPrint
 
                 if (type == 1)
                 {
-                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n"); 
+                    strByte = Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "控制数据" + sn + "：{" + BitConverter.ToString(data) + "}\r\n");
                 }
                 else if (type == 2)
                 {
@@ -181,13 +199,13 @@ namespace virtualPrint
             textBox3.AppendText(str);
         }
 
-       
+
 
         public void addTextAsync(string str)
         {
 
             BeginInvoke(new retext(addText), str);
-            
+
         }
 
         private void textBox3_TextChanged(object sender, EventArgs e)
@@ -201,7 +219,7 @@ namespace virtualPrint
 
         public class Print
         {
-            public Print(int index, IPAddress ip, int port1, int port2, retext logger)
+            public Print(int index, IPAddress ip, int port1, int port2, retext logger, string number)
             {
                 this.ip = ip;
                 this.index = index;
@@ -214,7 +232,7 @@ namespace virtualPrint
                 closed = false;
                 hearbeat = false;
                 client.BeginConnect(ip, port1, OnConnectComplete, null);
-                
+                this.number = number;
             }
             public static List<Print> dic = new List<Print>();
             public static Random RD = new Random();
@@ -225,7 +243,7 @@ namespace virtualPrint
             public List<byte> received;
             public byte[] receiveBuffer;
             public static volatile int openCount = 0;
-            public  bool hearbeat;
+            public bool hearbeat;
             public bool state = false;
             public static volatile int conncedCount = 0;
             public int port2;
@@ -235,6 +253,8 @@ namespace virtualPrint
             public readonly int HEADER_LENGTH = 20;
             private volatile bool closed;
             public int count = 0;
+            public string number;
+            public static volatile int connCount = 0;
 
             public string sn()
             {
@@ -275,6 +295,7 @@ namespace virtualPrint
                         {
                             dic.Add(this);
                             Interlocked.Increment(ref openCount);
+                            Interlocked.Increment(ref connCount);
                         }
                     }
                 }
@@ -313,13 +334,13 @@ namespace virtualPrint
                 }
                 catch (Exception ex)
                 {
-                   
+
                     client.Close();
                     stream.Dispose();
                     lock (objectLock)
                         dic.Remove(this);
                     getConnec();
-                    
+
                 }
             }
 
@@ -330,7 +351,7 @@ namespace virtualPrint
                     return;
                 }
                 int readcount = 0;
-                
+
                 try
                 {
                     var read = stream.EndRead(ar);
@@ -344,7 +365,7 @@ namespace virtualPrint
                     }
                     readcount = read;
                     var tmp = new byte[read];
-                    { 
+                    {
                         Array.Copy(receiveBuffer, tmp, read);
                         received.AddRange(tmp);
                         if (tmp[4] != 3)
@@ -353,9 +374,9 @@ namespace virtualPrint
                         }
                     }
                 }
-                    catch (Exception ex)
+                catch (Exception ex)
                 {
-                  
+                    log("尝试连接！");
                     Interlocked.Decrement(ref openCount);
                     client.Close();
                     stream.Dispose();
@@ -364,6 +385,7 @@ namespace virtualPrint
                         dic.Remove(this);
                     }
                     getConnec();
+
 
                 }
                 try
@@ -390,7 +412,7 @@ namespace virtualPrint
                 {
                     log("服务器可能已经关闭该连接！");
                 }
-               
+
             }
 
             public void HandleNormalData(int read)
@@ -415,7 +437,7 @@ namespace virtualPrint
                 Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
                 if (sendData[4] == 6)
                 {
-                    int snIndex=Int32.Parse(sn().Substring(sn().Length - 4));
+                    int snIndex = Int32.Parse(sn().Substring(sn().Length - 4));
                     sendBuffer[12] = (byte)(snIndex);
                     sendBuffer[13] = (byte)(snIndex >> 8);
                 }
@@ -426,7 +448,7 @@ namespace virtualPrint
                 stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                 if (sendBuffer[4] != 4)
                 {
-                    setLog(sendBuffer, 1, sn());
+                    setLog(sendBuffer, 1, number);
                 }
             }
             private void stateTo(bool tag)
@@ -443,9 +465,10 @@ namespace virtualPrint
             {
                 try
                 {
-                    var sendData=setHeand();
+                    var sendData = setHeand();
                     StringBuilder ss = new StringBuilder();
                     ss.Append("key=" + count + "\r\n");
+                    ss.Append("NUMBER=" + number + "\r\n");
                     ss.Append("sn=" + sn() + "\r\n");
                     ss.Append("model=DD-199\r\n");
                     ss.Append("PROTOCOLVER=1.2\r\n");
@@ -461,7 +484,7 @@ namespace virtualPrint
                     sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
                     sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
                     sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
-                    setLog(sendBuffer, 1, sn());
+                    setLog(sendBuffer, 1, number);
                     stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                 }
                 catch (Exception ex)
@@ -532,17 +555,17 @@ namespace virtualPrint
                 }
             }
 
-            private void openTcp2(string sn)
+            private void openTcp2(string numberstr)
             {
                 TcpClient tcp2 = new TcpClient();
                 tcp2.Connect(ip, port2);
                 NetworkStream sendStream2 = tcp2.GetStream();
                 Thread thread2 = new Thread(ListenerServer2);
-                Stream st = new FileStream(@"./wenben/" + sn + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create);
+                Stream st = new FileStream(@"./wenben/" + numberstr + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create);
                 BinaryWriter bw = new BinaryWriter(st);
-                thread2.Start(new object[] { sendStream2, tcp2, thread2, sn, bw, st });
-                byte[] data = Encoding.GetEncoding("GBK").GetBytes(sn);
-                setLog(data, 5, sn);
+                thread2.Start(new object[] { sendStream2, tcp2, thread2, numberstr, bw, st });
+                byte[] data = Encoding.GetEncoding("GBK").GetBytes(numberstr);
+                setLog(data, 5, numberstr);
                 sendStream2.Write(data, 0, data.Length);
             }
 
@@ -644,7 +667,24 @@ namespace virtualPrint
 
         private void button3_Click(object sender, EventArgs e)
         {
-            BeginInvoke(new retext(textBox3.AppendText), "连接总数：" + Print.openCount+" 已认证数:"+Print.conncedCount + "\r\n");
+            BeginInvoke(new retext(textBox3.AppendText), "连接总数：" + Print.openCount + " 已认证数:" + Print.conncedCount + " Tcp实际打开数:" + Print.connCount + "\r\n");
+        }
+
+        private void txb_endNum_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if ((e.KeyChar < 48 || e.KeyChar > 57) && e.KeyChar != 8)
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void txb_endNum_TextChanged(object sender, EventArgs e)
+        {
+            if (txb_endNum.Text.Length >= 14)
+            {
+                ulong numPrinters = UInt64.Parse(txb_endNum.Text) - UInt64.Parse(txb_startNnm.Text) + 1;
+                this.lb_num.Text = numPrinters.ToString();
+            }
         }
     }
 }
