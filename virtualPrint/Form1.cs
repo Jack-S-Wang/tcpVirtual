@@ -51,7 +51,7 @@ namespace virtualPrint
                                 return;
                             }
                         }
-                        ushort numPrinters = (ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16) + 1);
+                        ushort numPrinters = (ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16)+1);
                         this.lb_num.Text = numPrinters.ToString();
                         IPAddress ip = IPAddress.Parse(textBox1.Text);
                         int controlPort = Int32.Parse(textBox2.Text);
@@ -62,16 +62,13 @@ namespace virtualPrint
                         (new Thread(() =>
                         {
                             Random ra = new Random();
+                            string numstr = number.Substring(number.Length - 6);
+                            ushort num = Convert.ToUInt16(numstr, 16);
+                            string str = "";
                             for (int i = 0; i < needNum; i++)
                             {
-                                string numstr=number.Substring(number.Length - 6);
-                                string str = "";
-                                if (jinPort == 16)
-                                {
-                                    ushort num = Convert.ToUInt16(numstr, 16);
-                                    num = (ushort)(num + i);
-                                    str= Convert.ToString(num, jinPort);
-                                }
+                                ushort n = (ushort)(num + i);
+                                str = Convert.ToString(n, jinPort);
                                 number = number.Substring(0, number.Length - str.Length) + str;
                                 int sn = ra.Next(10000000, 90000000);
                                 new Print(sn, ip, controlPort, dataPort, addTextAsync, number);
@@ -116,7 +113,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V4.0";
+            this.lb_banben.Text = "V4.2";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
