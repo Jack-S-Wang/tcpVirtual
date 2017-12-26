@@ -51,7 +51,7 @@ namespace virtualPrint
                                 return;
                             }
                         }
-                        ushort numPrinters = (ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16)+1);
+                        ushort numPrinters = (ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16) + 1);
                         this.lb_num.Text = numPrinters.ToString();
                         IPAddress ip = IPAddress.Parse(textBox1.Text);
                         int controlPort = Int32.Parse(textBox2.Text);
@@ -59,19 +59,28 @@ namespace virtualPrint
                         int jinPort = Int32.Parse(txb_jinzhi.Text);
                         int needNum = Int32.Parse(lb_num.Text);
                         string number = txb_startNnm.Text;
+                        string prefix = txb_startNnm.Text.Substring(0, txb_startNnm.TextLength - 6);
                         (new Thread(() =>
                         {
                             Random ra = new Random();
                             string numstr = number.Substring(number.Length - 6);
-                            ushort num = Convert.ToUInt16(numstr, 16);
-                            string str = "";
+                            uint num = Convert.ToUInt32(numstr, 16);
                             for (int i = 0; i < needNum; i++)
                             {
-                                ushort n = (ushort)(num + i);
-                                str = Convert.ToString(n, jinPort);
-                                number = number.Substring(0, number.Length - str.Length) + str;
+                                uint n = (uint)(num + i);                                
                                 int sn = ra.Next(10000000, 90000000);
-                                new Print(sn, ip, controlPort, dataPort, addTextAsync, number);
+                                string actualNumber = prefix + string.Format("{0:X6}", n);
+                                if (string.IsNullOrWhiteSpace(actualNumber))
+                                {
+                                    string msg = "遭遇字符串为空白或空串。\r\n";
+                                    msg += "prefix = " + (prefix??"(null)") + "\r\n";
+                                    msg += "n = " + (string.Format("{0:X6}", n) ?? "(null)") + "\r\n";
+                                    msg += "actualNumber = " + (actualNumber ?? "(null)");
+                                    MessageBox.Show(msg);
+                                }
+                                new Print(sn, ip, controlPort, dataPort, addTextAsync,
+                                    actualNumber);
+                              
                             }
                         })).Start();
 
@@ -113,7 +122,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V4.2";
+            this.lb_banben.Text = "V4.4d";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -240,9 +249,13 @@ namespace virtualPrint
                 received = new List<byte>();
                 closed = false;
                 hearbeat = false;
-                client.BeginConnect(ip, port1, OnConnectComplete, null);
                 this.number = number;
+
+                Interlocked.Increment(ref connCount);
+                // BeginConnect 必须是构造函数中最后一个操作。
+                client.BeginConnect(ip, port1, OnConnectComplete, null);
             }
+
             public static List<Print> dic = new List<Print>();
             public static Random RD = new Random();
             public int index;
@@ -262,7 +275,7 @@ namespace virtualPrint
             public readonly int HEADER_LENGTH = 20;
             private volatile bool closed;
             public int count = 0;
-            public string number;
+            public readonly string number;
             public static volatile int connCount = 0;
 
             public string sn()
@@ -304,11 +317,17 @@ namespace virtualPrint
                         {
                             dic.Add(this);
                             Interlocked.Increment(ref openCount);
-                            Interlocked.Increment(ref connCount);
+                            
                         }
                     }
                 }
-                catch { return; }
+                catch {
+                    if (!closed)
+                    {
+                        Interlocked.Decrement(ref connCount);
+                    }
+                    return;
+                }
                 try
                 {
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
@@ -366,6 +385,7 @@ namespace virtualPrint
                     var read = stream.EndRead(ar);
                     if (read == 0)
                     {
+
                         stream.Dispose();
                         client.Close();
                         (client as IDisposable).Dispose();
@@ -469,7 +489,6 @@ namespace virtualPrint
                 }
                 state = tag;
             }
-
             public void HandleAuthentication(int read)
             {
                 try
@@ -477,6 +496,11 @@ namespace virtualPrint
                     var sendData = setHeand();
                     StringBuilder ss = new StringBuilder();
                     ss.Append("key=" + count + "\r\n");
+                    if (string.IsNullOrWhiteSpace(number))
+                    {
+
+                        MessageBox.Show("number is null or white space");
+                    }
                     ss.Append("NUMBER=" + number + "\r\n");
                     ss.Append("sn=" + sn() + "\r\n");
                     ss.Append("model=DD-199\r\n");
@@ -485,6 +509,7 @@ namespace virtualPrint
                     ss.Append("xdpi=132\r\n");
                     ss.Append("ydpi=365\r\n");
                     ss.Append("pageWidth=981");
+
                     var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
                     var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
                     Array.Copy(sendData, 0, sendBuffer, 0, HEADER_LENGTH);
