@@ -32,6 +32,12 @@
             this.button2 = new System.Windows.Forms.Button();
             this.button1 = new System.Windows.Forms.Button();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.txb_jinzhi = new System.Windows.Forms.TextBox();
+            this.label8 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.lb_num = new System.Windows.Forms.Label();
+            this.txb_endNum = new System.Windows.Forms.TextBox();
+            this.txb_startNnm = new System.Windows.Forms.TextBox();
             this.button3 = new System.Windows.Forms.Button();
             this.label5 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
@@ -47,12 +53,6 @@
             this.label6 = new System.Windows.Forms.Label();
             this.panel3 = new System.Windows.Forms.Panel();
             this.panel4 = new System.Windows.Forms.Panel();
-            this.txb_startNnm = new System.Windows.Forms.TextBox();
-            this.txb_endNum = new System.Windows.Forms.TextBox();
-            this.lb_num = new System.Windows.Forms.Label();
-            this.label7 = new System.Windows.Forms.Label();
-            this.label8 = new System.Windows.Forms.Label();
-            this.txb_jinzhi = new System.Windows.Forms.TextBox();
             this.panel1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -111,6 +111,59 @@
             this.groupBox2.TabIndex = 1;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "数据监听";
+            // 
+            // txb_jinzhi
+            // 
+            this.txb_jinzhi.Location = new System.Drawing.Point(371, 87);
+            this.txb_jinzhi.Name = "txb_jinzhi";
+            this.txb_jinzhi.Size = new System.Drawing.Size(51, 21);
+            this.txb_jinzhi.TabIndex = 13;
+            this.txb_jinzhi.Text = "16";
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(309, 91);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(53, 12);
+            this.label8.TabIndex = 12;
+            this.label8.Text = "进制递增";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(175, 91);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(17, 12);
+            this.label7.TabIndex = 11;
+            this.label7.Text = "--";
+            // 
+            // lb_num
+            // 
+            this.lb_num.AutoSize = true;
+            this.lb_num.Location = new System.Drawing.Point(321, 48);
+            this.lb_num.Name = "lb_num";
+            this.lb_num.Size = new System.Drawing.Size(41, 12);
+            this.lb_num.TabIndex = 10;
+            this.lb_num.Text = "label7";
+            // 
+            // txb_endNum
+            // 
+            this.txb_endNum.Location = new System.Drawing.Point(198, 88);
+            this.txb_endNum.Name = "txb_endNum";
+            this.txb_endNum.Size = new System.Drawing.Size(100, 21);
+            this.txb_endNum.TabIndex = 9;
+            this.txb_endNum.Text = "00171211900000";
+            this.txb_endNum.TextChanged += new System.EventHandler(this.txb_endNum_TextChanged);
+            this.txb_endNum.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txb_endNum_KeyPress);
+            // 
+            // txb_startNnm
+            // 
+            this.txb_startNnm.Location = new System.Drawing.Point(69, 88);
+            this.txb_startNnm.Name = "txb_startNnm";
+            this.txb_startNnm.Size = new System.Drawing.Size(100, 21);
+            this.txb_startNnm.TabIndex = 8;
+            this.txb_startNnm.Text = "00171211000000";
             // 
             // button3
             // 
@@ -246,59 +299,6 @@
             this.panel4.Name = "panel4";
             this.panel4.Size = new System.Drawing.Size(886, 169);
             this.panel4.TabIndex = 3;
-            // 
-            // txb_startNnm
-            // 
-            this.txb_startNnm.Location = new System.Drawing.Point(69, 88);
-            this.txb_startNnm.Name = "txb_startNnm";
-            this.txb_startNnm.Size = new System.Drawing.Size(100, 21);
-            this.txb_startNnm.TabIndex = 8;
-            this.txb_startNnm.Text = "00171211000000";
-            // 
-            // txb_endNum
-            // 
-            this.txb_endNum.Location = new System.Drawing.Point(198, 88);
-            this.txb_endNum.Name = "txb_endNum";
-            this.txb_endNum.Size = new System.Drawing.Size(100, 21);
-            this.txb_endNum.TabIndex = 9;
-            this.txb_endNum.Text = "001712119000000";
-            this.txb_endNum.TextChanged += new System.EventHandler(this.txb_endNum_TextChanged);
-            this.txb_endNum.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txb_endNum_KeyPress);
-            // 
-            // lb_num
-            // 
-            this.lb_num.AutoSize = true;
-            this.lb_num.Location = new System.Drawing.Point(321, 48);
-            this.lb_num.Name = "lb_num";
-            this.lb_num.Size = new System.Drawing.Size(41, 12);
-            this.lb_num.TabIndex = 10;
-            this.lb_num.Text = "label7";
-            // 
-            // label7
-            // 
-            this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(175, 91);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(17, 12);
-            this.label7.TabIndex = 11;
-            this.label7.Text = "--";
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(309, 91);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(53, 12);
-            this.label8.TabIndex = 12;
-            this.label8.Text = "进制递增";
-            // 
-            // txb_jinzhi
-            // 
-            this.txb_jinzhi.Location = new System.Drawing.Point(371, 87);
-            this.txb_jinzhi.Name = "txb_jinzhi";
-            this.txb_jinzhi.Size = new System.Drawing.Size(51, 21);
-            this.txb_jinzhi.TabIndex = 13;
-            this.txb_jinzhi.Text = "16";
             // 
             // Form1
             // 

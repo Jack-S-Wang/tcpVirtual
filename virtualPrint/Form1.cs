@@ -78,6 +78,10 @@ namespace virtualPrint
                                     msg += "actualNumber = " + (actualNumber ?? "(null)");
                                     MessageBox.Show(msg);
                                 }
+                                if (i % 3000 == 0)
+                                {
+                                    Thread.Sleep(3000);
+                                }
                                 new Print(sn, ip, controlPort, dataPort, addTextAsync,
                                     actualNumber);
                               
@@ -122,7 +126,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V4.4d";
+            this.lb_banben.Text = "V4.4";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -360,7 +364,7 @@ namespace virtualPrint
                 {
                     stream.EndWrite(ar);
                 }
-                catch (Exception ex)
+                catch
                 {
 
                     client.Close();
@@ -403,7 +407,7 @@ namespace virtualPrint
                         }
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
                     log("尝试连接！");
                     Interlocked.Decrement(ref openCount);
@@ -429,7 +433,7 @@ namespace virtualPrint
                         HandleAuthentication(readcount);
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
                     log("出现一个未知的错误信息！");
                 }
@@ -521,7 +525,7 @@ namespace virtualPrint
                     setLog(sendBuffer, 1, number);
                     stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                 }
-                catch (Exception ex)
+                catch
                 {
                     Interlocked.Decrement(ref openCount);
                     //MessageBox.Show(ex.Message);
@@ -690,7 +694,7 @@ namespace virtualPrint
                             setLog2(buffernew, sn, bw);
                         }
                     }
-                    catch (Exception ex)
+                    catch
                     {
                         log("关闭了数据通道!");
                     }
