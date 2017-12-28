@@ -51,7 +51,7 @@ namespace virtualPrint
                                 return;
                             }
                         }
-                        ushort numPrinters = (ushort)(Convert.ToUInt16(dataE, 16) - Convert.ToUInt16(dataS, 16) + 1);
+                        uint numPrinters = (uint)(Convert.ToUInt32(dataE, 16) - Convert.ToUInt32(dataS, 16) + 1);
                         this.lb_num.Text = numPrinters.ToString();
                         IPAddress ip = IPAddress.Parse(textBox1.Text);
                         int controlPort = Int32.Parse(textBox2.Text);
@@ -67,13 +67,13 @@ namespace virtualPrint
                             uint num = Convert.ToUInt32(numstr, 16);
                             for (int i = 0; i < needNum; i++)
                             {
-                                uint n = (uint)(num + i);                                
+                                uint n = (uint)(num + i);
                                 int sn = ra.Next(10000000, 90000000);
                                 string actualNumber = prefix + string.Format("{0:X6}", n);
                                 if (string.IsNullOrWhiteSpace(actualNumber))
                                 {
                                     string msg = "遭遇字符串为空白或空串。\r\n";
-                                    msg += "prefix = " + (prefix??"(null)") + "\r\n";
+                                    msg += "prefix = " + (prefix ?? "(null)") + "\r\n";
                                     msg += "n = " + (string.Format("{0:X6}", n) ?? "(null)") + "\r\n";
                                     msg += "actualNumber = " + (actualNumber ?? "(null)");
                                     MessageBox.Show(msg);
@@ -84,7 +84,7 @@ namespace virtualPrint
                                 }
                                 new Print(sn, ip, controlPort, dataPort, addTextAsync,
                                     actualNumber);
-                              
+
                             }
                         })).Start();
 
@@ -126,7 +126,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V4.4";
+            this.lb_banben.Text = "V4.6";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -321,11 +321,12 @@ namespace virtualPrint
                         {
                             dic.Add(this);
                             Interlocked.Increment(ref openCount);
-                            
+
                         }
                     }
                 }
-                catch {
+                catch
+                {
                     if (!closed)
                     {
                         Interlocked.Decrement(ref connCount);
@@ -336,7 +337,7 @@ namespace virtualPrint
                 {
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
                 }
-                catch (Exception ex)
+                catch
                 {
                     Interlocked.Decrement(ref openCount);
                 }
@@ -457,7 +458,7 @@ namespace virtualPrint
                     StringBuilder ss = new StringBuilder();
                     ss.Append("ready\r\n");
                     ss.Append("\r\n");
-                    ss.Append("" + RD.Next(4000));
+                    ss.Append("" + RD.Next(500,4000));
                     ssbytes = Encoding.GetEncoding("UTF-8")
                         .GetBytes(ss.ToString());
                 }
@@ -478,7 +479,10 @@ namespace virtualPrint
                 sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
                 sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
                 sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
-                stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
+                if (sendBuffer[4] != 7)
+                {
+                    stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
+                }
                 if (sendBuffer[4] != 4)
                 {
                     setLog(sendBuffer, 1, number);
