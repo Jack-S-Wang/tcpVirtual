@@ -10,6 +10,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.IO;
+using virtualPrint.printerDev;
+using System.Xml.Serialization;
 
 namespace virtualPrint
 {
@@ -45,12 +47,13 @@ namespace virtualPrint
                         {
                             dataS = txb_startNnm.Text.Substring(txb_startNnm.Text.Length - 6);
                             dataE = txb_endNum.Text.Substring(txb_endNum.Text.Length - 6);
-                            if (Convert.ToUInt16(dataE, 16) < Convert.ToUInt16(dataS, 16))
+                            if (Convert.ToUInt32(dataE, 16) < Convert.ToUInt32(dataS, 16))
                             {
                                 MessageBox.Show("编号不能小于设置的最小编号值！");
                                 return;
                             }
                         }
+                        Print.model = txb_model.Text;
                         uint numPrinters = (uint)(Convert.ToUInt32(dataE, 16) - Convert.ToUInt32(dataS, 16) + 1);
                         this.lb_num.Text = numPrinters.ToString();
                         IPAddress ip = IPAddress.Parse(textBox1.Text);
@@ -87,6 +90,24 @@ namespace virtualPrint
 
                             }
                         })).Start();
+                        using (FileStream file = new FileStream("./cfg.xml", FileMode.OpenOrCreate))
+                        {
+                            if (file.Length > 0)
+                            {
+                                file.SetLength(0);
+                                file.Seek(0, 0);
+                            }
+                            XmlSerializer xml = new XmlSerializer(typeof(ipCfg));
+                            ipCfg fg = new ipCfg()
+                            {
+                                ip = textBox1.Text,
+                                contorlPort = textBox2.Text,
+                                dataPort = textBox4.Text,
+                                model = txb_model.Text
+                            };
+                            xml.Serialize(file, fg);
+
+                        }
 
                     }
                     else
@@ -126,12 +147,27 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V4.6";
+            this.lb_banben.Text = "V5.1.3";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
-            ulong numPrinters = UInt64.Parse(txb_endNum.Text) - UInt64.Parse(txb_startNnm.Text) + 1;
+            ulong numPrinters = Convert.ToUInt64(txb_endNum.Text, 16) - Convert.ToUInt64(txb_startNnm.Text, 16) + 1;
             this.lb_num.Text = numPrinters.ToString();
+            cmb_mState.SelectedIndex = 0;
+            using (FileStream file = new FileStream("./cfg.xml", FileMode.OpenOrCreate))
+            {
+                if (file.Length > 0)
+                {
+                    XmlSerializer xml = new XmlSerializer(typeof(ipCfg));
+                    var result = xml.Deserialize(file) as ipCfg;
+                    textBox1.Text = result.ip;
+                    textBox2.Text = result.contorlPort;
+                    textBox4.Text = result.dataPort;
+                    txb_model.Text = result.model;
+                }
+            }
+
+
         }
 
         private void textBox5_KeyPress(object sender, KeyPressEventArgs e)
@@ -252,7 +288,6 @@ namespace virtualPrint
                 receiveBuffer = new byte[1024];
                 received = new List<byte>();
                 closed = false;
-                hearbeat = false;
                 this.number = number;
 
                 Interlocked.Increment(ref connCount);
@@ -269,7 +304,6 @@ namespace virtualPrint
             public List<byte> received;
             public byte[] receiveBuffer;
             public static volatile int openCount = 0;
-            public bool hearbeat;
             public bool state = false;
             public static volatile int conncedCount = 0;
             public int port2;
@@ -281,7 +315,7 @@ namespace virtualPrint
             public int count = 0;
             public readonly string number;
             public static volatile int connCount = 0;
-
+            public static string model = "";
             public string sn()
             {
                 return index.ToString();
@@ -300,7 +334,7 @@ namespace virtualPrint
                 var x = OnPrintLog;
                 if (x != null)
                 {
-                    x(l);
+                    x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + l);
                 }
             }
 
@@ -327,6 +361,7 @@ namespace virtualPrint
                 }
                 catch
                 {
+                    log("服务器无法连接上！");
                     if (!closed)
                     {
                         Interlocked.Decrement(ref connCount);
@@ -335,6 +370,7 @@ namespace virtualPrint
                 }
                 try
                 {
+                    HandleAuthentication();
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
                 }
                 catch
@@ -367,12 +403,12 @@ namespace virtualPrint
                 }
                 catch
                 {
-
+                    log("写入数据失败！");
                     client.Close();
                     stream.Dispose();
                     lock (objectLock)
                         dic.Remove(this);
-                    getConnec();
+                    //getConnec();
 
                 }
             }
@@ -390,27 +426,26 @@ namespace virtualPrint
                     var read = stream.EndRead(ar);
                     if (read == 0)
                     {
-
+                        log("服务器无数据！本地端口：" + client.Client.LocalEndPoint.ToString() +
+                            "，已读取数据字节数：" + bytesReceived + "，读取完成次数：" + readCompleteCount + "\r\n");
                         stream.Dispose();
                         client.Close();
                         (client as IDisposable).Dispose();
                         Interlocked.Decrement(ref openCount);
                         return;
                     }
+                    bytesReceived += read;
+                    readCompleteCount += 1;
                     readcount = read;
                     var tmp = new byte[read];
                     {
                         Array.Copy(receiveBuffer, tmp, read);
                         received.AddRange(tmp);
-                        if (tmp[4] != 3)
-                        {
-                            setLog(tmp, 2, number);
-                        }
                     }
                 }
                 catch
                 {
-                    log("尝试连接！");
+                    log("已经断开TCP连接");
                     Interlocked.Decrement(ref openCount);
                     client.Close();
                     stream.Dispose();
@@ -418,197 +453,289 @@ namespace virtualPrint
                     {
                         dic.Remove(this);
                     }
-                    getConnec();
+                    //getConnec();
 
 
                 }
                 try
                 {
-                    if (received[4] != 1)
-                    {
-
-                        HandleNormalData(readcount);
-                    }
-                    else
-                    {
-                        HandleAuthentication(readcount);
-                    }
-                }
-                catch
-                {
-                    log("出现一个未知的错误信息！");
-                }
-                try
-                {
-                    stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
+                    HandleNormalData(readcount);
                 }
                 catch (Exception ex)
+                {
+                    log("出现一个未知的错误信息！" + string.Format("异常{0}，追踪{1}", ex, ex.StackTrace));
+                }
+                try
+                {
+                    //log("重新读取数据\r\n");
+                    stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
+                }
+                catch
                 {
                     log("服务器可能已经关闭该连接！");
                 }
 
             }
 
+            private DateTime lastTimeoutCheck = DateTime.Now;
+            private void OnAuthenticationResponse(byte[] received)
+            {
+                if (received.Length != 24)
+                {
+                    log("服务器发送了不完整的认证信息！长度应当为24，实际为" + received.Length + "\r\n");
+                    client.Close();
+                    stream.Close();
+                    stream.Dispose();
+                }
+
+                if (received[13] != 2)
+                {
+                    log("服务器认证消息的“设备类型”字段应当固定为2，此处收到" + received[13] + "\r\n");
+                }
+
+                isBeat = true;
+                int time = ((received[23] << 8) + received[22]) * 2000;
+                ti.Enabled = true;
+                ti.Interval = time;
+                ti.Elapsed += ((o, e) =>
+                {
+                    if (!closed && ti.Enabled)
+                    {
+                        if (!isBeat)
+                        {
+                            client.Close();
+                            stream.Close();
+                            stream.Dispose();
+                            ti.Dispose();
+                        }
+                        else
+                        {
+                            isBeat = false;
+                            lastTimeoutCheck = DateTime.Now;
+                        }
+                    }
+                });
+                count = (received[21] << 8) + received[20];
+                switch (count)
+                {
+                    case 0:
+                        log("验证成功！\r\n");
+                        Interlocked.Increment(ref conncedCount);
+                        break;
+                    case 1:
+                        log("设备ID未注册\r\n");
+                        break;
+                    case 2:
+                        log("信息获取失败!\r\n");
+                        break;
+                    case 3:
+                        log("其他错误，未定义\r\n");
+                        break;
+                }
+            }
+
+            private void OnPrintRequest(byte[] received)
+            {
+                if (received.Length != HEADER_LENGTH)
+                {
+                    log("服务器发送了超长的打印通道开启请求！长度应当为20，实际为" + received.Length + "\r\n");
+                }
+                openTcp2(received[13]);
+            }
+
+            private void OnCommandOrHeartbeat(byte[] received)
+            {
+                var p = new Printershar(received);
+                var data = p.getReData();
+                if (p.contorlTo)
+                {
+                    log(number + ":" + "{" + BitConverter.ToString(received) + "}\r\n");
+                    setLog(received, 2, number);
+                }
+                byte[] dataAll1 = new byte[HEADER_LENGTH + data.Length];
+                Array.Copy(received, 0, dataAll1, 0, HEADER_LENGTH);
+                Array.Copy(data, 0, dataAll1, HEADER_LENGTH, data.Length);
+                dataAll1[8] = (byte)(data.Length & 0xFF);
+                dataAll1[9] = (byte)((data.Length & 0xFF00) >> 8);
+                dataAll1[10] = (byte)((data.Length & 0xFF0000) >> 16);
+                dataAll1[11] = (byte)((data.Length & 0xFF000000) >> 24);
+                try
+                {
+                    stream.BeginWrite(dataAll1, 0, dataAll1.Length, OnWriteComplete, this);
+                    //log("心跳回复已发送。\r\n");
+                }
+                catch
+                {
+                    log("写入数据失败!\r\n");
+                }
+            }
+
+            private bool IsValidHeaderSignature()
+            {
+                return received[0] == 0x40 && received[1] == 0x41 && received[2] == 0x2f && received[3] == 0x3f;
+            }
+
+            private int bytesReceived = 0;
+
+            private int readCompleteCount = 0;
+
             public void HandleNormalData(int read)
             {
-                var sendData = setHeand();
-                byte[] ssbytes;
-                if (sendData[4] == 4)
+                //log("读取到"+read+" \r\n");
+                int bodySize = 0;
+                isBeat = true;
+                while (HasCompleteMessage(ref bodySize))
                 {
-                    StringBuilder ss = new StringBuilder();
-                    ss.Append("ready\r\n");
-                    ss.Append("\r\n");
-                    ss.Append("" + RD.Next(500,4000));
-                    ssbytes = Encoding.GetEncoding("UTF-8")
-                        .GetBytes(ss.ToString());
-                }
-                else
-                {
-                    ssbytes = Encoding.GetEncoding("utf-8").GetBytes(RD.Next(1000).ToString());
-                }
-                var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
-                Array.Copy(sendData, 0, sendBuffer, 0, HEADER_LENGTH);
-                Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
-                if (sendData[4] == 6)
-                {
-                    int snIndex = Int32.Parse(sn().Substring(sn().Length - 4));
-                    sendBuffer[12] = (byte)(snIndex);
-                    sendBuffer[13] = (byte)(snIndex >> 8);
-                }
-                sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
-                sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
-                if (sendBuffer[4] != 7)
-                {
-                    stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
-                }
-                if (sendBuffer[4] != 4)
-                {
-                    setLog(sendBuffer, 1, number);
-                }
-            }
-            private void stateTo(bool tag)
-            {
 
-                if (state != tag)
-                {
-                    Interlocked.Increment(ref conncedCount);
+                    if (!IsValidHeaderSignature())
+                    {
+                        log("消息头标记不正确：" + string.Format("0x{0:X2} 0x{1:X2} 0x{2:X2} 0x{3:X2}",
+                            received[0], received[1], received[2], received[3]));
+                    }
+
+                    var message = received.Take(HEADER_LENGTH + bodySize).ToArray();
+                    switch (received[12])
+                    {
+                        case virtuP.sureIndex:
+                            OnAuthenticationResponse(message);
+                            break;
+                        case virtuP.printIndex:
+                            OnPrintRequest(message);
+                            break;
+                        case virtuP.conmendIndex:
+                            OnCommandOrHeartbeat(message);
+                            break;
+                        default:
+                            {
+                                //TODO : 记录错误日志。
+                                log("收到一条非控制命令，命令码" + received[12]);
+                            }
+                            break;
+                    }
+                    received.RemoveRange(0, HEADER_LENGTH + bodySize);
                 }
-                state = tag;
+
             }
-            public void HandleAuthentication(int read)
+
+            public bool HasCompleteMessage(ref int bodySize)
+            {
+                if (received.Count < HEADER_LENGTH)
+                {
+                    return false;
+                }
+
+                bodySize =
+                   received[8] +
+                   received[9] * 256 +
+                   received[10] * 256 * 256 +
+                   received[11] * 256 * 256 * 256;
+
+                return received.Count >= HEADER_LENGTH + bodySize;
+            }
+
+            public void HandleAuthentication()
             {
                 try
                 {
-                    var sendData = setHeand();
-                    StringBuilder ss = new StringBuilder();
-                    ss.Append("key=" + count + "\r\n");
-                    if (string.IsNullOrWhiteSpace(number))
+                    var n = Encoding.GetEncoding("UTF-8").GetBytes(number.Substring(number.Length - 4));
+                    byte[] dataHeard = new byte[20];
+                    dataHeard[0] = 0x40;
+                    dataHeard[1] = 0x41;
+                    dataHeard[2] = 0x2f;
+                    dataHeard[3] = 0x3f;
+                    dataHeard[4] = n[0];
+                    dataHeard[5] = n[1];
+                    dataHeard[6] = n[2];
+                    dataHeard[7] = n[3];
+                    dataHeard[12] = virtuP.sureIndex;
+                    dataHeard[13] = 2;
+                    int hreadall = 8;
+                    //通用
+                    int hreadDev = 3;
+                    string sDev = model + ";" + number + ";1.2;1.3;2.3;1.2;";
+                    var sDbyte = Encoding.UTF8.GetBytes(sDev);
+                    //系统..... 固定6个字节
+                    int infolength = 6;
+                    int info = 368;
+                    //用户
+                    int hreadUser = 2;
+                    byte[] ssbytes = new byte[9];
+                    string s = "";
+                    for (int i = 0; i < number.Length; i++)
                     {
-
-                        MessageBox.Show("number is null or white space");
+                        if (i % 2 != 0)
+                        {
+                            s += number[i];
+                            int index = (i + 1) / 2;
+                            ssbytes[index - 1] = Convert.ToByte(s, 16);
+                            s = "";
+                        }
+                        else
+                        {
+                            s += number[i];
+                        }
                     }
-                    ss.Append("NUMBER=" + number + "\r\n");
-                    ss.Append("sn=" + sn() + "\r\n");
-                    ss.Append("model=DD-199\r\n");
-                    ss.Append("PROTOCOLVER=1.2\r\n");
-                    ss.Append("LANGUAGE=ESC\r\n");
-                    ss.Append("xdpi=132\r\n");
-                    ss.Append("ydpi=365\r\n");
-                    ss.Append("pageWidth=981");
+                    ssbytes[8] = 0x3B;
+                    int len = sDbyte.Length + ssbytes.Length + hreadall + hreadUser + hreadDev + infolength;
+                    var sendBuffer = new byte[HEADER_LENGTH + len];
+                    //头
+                    Array.Copy(dataHeard, 0, sendBuffer, 0, HEADER_LENGTH);
+                    //通用
+                    Array.Copy(sDbyte, 0, sendBuffer, HEADER_LENGTH + hreadall + hreadDev, sDbyte.Length);
+                    //系统
+                    int len1 = HEADER_LENGTH + hreadall + hreadDev + sDbyte.Length;
+                    sendBuffer[len1] = 0x06;
+                    sendBuffer[len1 + 1] = 0x02;
+                    sendBuffer[len1 + 2] = (byte)((len1 & 0xFF000000) >> 24);
+                    sendBuffer[len1 + 3] = (byte)((len1 & 0xFF0000) >> 16);
+                    sendBuffer[len1 + 4] = (byte)((len1 & 0xFF00) >> 8);
+                    sendBuffer[len1 + 5] = (byte)(len1 & 0xFF);
+                    //用户
+                    Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH + sDbyte.Length + hreadall + hreadDev + infolength + hreadUser, ssbytes.Length);
+                    //消息体总长度
+                    sendBuffer[8] = (byte)(len & 0xFF);
+                    sendBuffer[9] = (byte)((len & 0xFF00) >> 8);
+                    sendBuffer[10] = (byte)((len & 0xFF0000) >> 16);
+                    sendBuffer[11] = (byte)((len & 0xFF000000) >> 24);
+                    //所有信息返回消息头
+                    sendBuffer[20] = 0x10;
+                    sendBuffer[21] = 0x0c;
+                    sendBuffer[22] = (byte)(len - 4);
+                    sendBuffer[23] = 0x67;
+                    sendBuffer[24] = 0;
+                    //所有
+                    sendBuffer[25] = 0x80;
+                    sendBuffer[26] = 0x03;
+                    //通用
+                    sendBuffer[27] = 0;
+                    sendBuffer[28] = (byte)(sDbyte.Length + hreadDev);
+                    sendBuffer[29] = 0x01;
+                    sendBuffer[30] = 0x3B;
+                    //用户
+                    int len2 = HEADER_LENGTH + sDbyte.Length + hreadall + hreadDev + infolength;
+                    sendBuffer[len2] = (byte)(hreadUser + ssbytes.Length);
+                    sendBuffer[len2 + 1] = 0x03;
 
-                    var ssbytes = Encoding.GetEncoding("UTF-8").GetBytes(ss.ToString());
-                    var sendBuffer = new byte[HEADER_LENGTH + ssbytes.Length];
-                    Array.Copy(sendData, 0, sendBuffer, 0, HEADER_LENGTH);
-                    Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH, ssbytes.Length);
-                    sendBuffer[16] = (byte)(ssbytes.Length & 0xFF);
-                    sendBuffer[17] = (byte)((ssbytes.Length & 0xFF00) >> 8);
-                    sendBuffer[18] = (byte)((ssbytes.Length & 0xFF0000) >> 16);
-                    sendBuffer[19] = (byte)((ssbytes.Length & 0xFF000000) >> 24);
                     setLog(sendBuffer, 1, number);
                     stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
                 }
                 catch
                 {
                     Interlocked.Decrement(ref openCount);
-                    //MessageBox.Show(ex.Message);
                 }
             }
 
-            private byte[] setHeand()
-            {
-                lock (objectLock)
-                {
-                    byte[] sendBuffer = new byte[HEADER_LENGTH];
-                    if (received[4] == 1)
-                    {
-                        isBeat = true;
-                        int time = ((received[21] << 8) + received[20]) * 2000;
-                        ti.Enabled = true;
-                        ti.Interval = time;
-                        ti.Elapsed += ((o, e) =>
-                        {
-                            if (!isBeat)
-                            {
-                                client.Close();
-                                stream.Close();
-                            }
-                            else
-                            {
-                                isBeat = false;
-                            }
-                        });
-                        count = (received[23] << 8) + received[22];
-                        received[4] = 2;
-                        received.CopyTo(0, sendBuffer, 0, HEADER_LENGTH);
-                        received.RemoveRange(0, received.Count);
-                        return sendBuffer;
-                    }
-                    else
-                    {
-                        isBeat = true;
-                        int bodySize =
-                            received[16] +
-                            received[17] * 256 +
-                            received[18] * 256 * 256 +
-                            received[19] * 256 * 256 * 256;
-                        if (received.Count >= HEADER_LENGTH + bodySize)
-                        {
-                            if (received[4] == 3)
-                            {
-                                hearbeat = true;
-                                stateTo(hearbeat);
-                                received[4] = 4;
-                            }
-                            else if (received[4] == 5)
-                            {
-                                received[4] = 6;
-                            }
-                            else if (received[4] == 7)
-                            {
-                                openTcp2(number);
-                            }
-                            received.CopyTo(0, sendBuffer, 0, HEADER_LENGTH);
-                            received.RemoveRange(0, received.Count);
-                        }
-                        return sendBuffer;
-                    }
-                }
-            }
 
-            private void openTcp2(string numberstr)
+            private void openTcp2(byte DevOrWife)
             {
                 TcpClient tcp2 = new TcpClient();
                 tcp2.Connect(ip, port2);
                 NetworkStream sendStream2 = tcp2.GetStream();
                 Thread thread2 = new Thread(ListenerServer2);
-                Stream st = new FileStream(@"./wenben/" + numberstr + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create);
+                Stream st = new FileStream(@"./wenben/" + number + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create);
                 BinaryWriter bw = new BinaryWriter(st);
-                thread2.Start(new object[] { sendStream2, tcp2, thread2, numberstr, bw, st });
-                byte[] data = Encoding.GetEncoding("GBK").GetBytes(numberstr);
-                setLog(data, 5, numberstr);
-                sendStream2.Write(data, 0, data.Length);
+                thread2.Start(new object[] { sendStream2, tcp2, thread2, number, bw, st, DevOrWife });
+               
             }
 
             private void ListenerServer2(object Stream)
@@ -620,18 +747,20 @@ namespace virtualPrint
                 string sn = obj[3] as string;
                 BinaryWriter bw = obj[4] as BinaryWriter;
                 Stream st = obj[5] as Stream;
-                do
+                byte DevOrWife = (byte)obj[6];
+
+                try
                 {
-                    try
+                    lock (sendStream2)
                     {
-                        int readSize;
-                        byte[] buffer = new byte[8000];
-                        lock (sendStream2)
+                        if (tcp2.Connected)
                         {
-                            if (tcp2.Connected)
-                            {
-                                log("客户端曰" + sn + "：已打开数据通道\n");
-                            }
+                            log("客户端曰" + sn + "：已打开数据通道\n");
+                        }
+                        do
+                        {
+                            int readSize;
+                            byte[] buffer = new byte[8000];
                             byte[] data = null;
                             readSize = sendStream2.Read(buffer, 0, 8000);
                             if (readSize == 0)
@@ -648,14 +777,50 @@ namespace virtualPrint
                             }
                             else//说明时打印信息
                             {
-                                if (buffer[4] == 9)
+                                if (buffer[12] == virtuP.rePrinIndex)
                                 {
-                                    StringBuilder sql = new StringBuilder();
-                                    sql.Append("ready\r\n");
-                                    sql.Append("\r\n");
-                                    Random ran = new Random();
-                                    sql.Append("" + ran.Next(4000));
-                                    byte[] dataStr = Encoding.GetEncoding("utf-8").GetBytes(sql.ToString());
+                                    byte[] dataNum = new byte[8];
+                                    string s = "";
+                                    for (int i = 0; i < number.Length; i++)
+                                    {
+                                        if (i % 2 != 0)
+                                        {
+                                            s += number[i];
+                                            int index = (i + 1) / 2;
+                                            dataNum[index - 1] = Convert.ToByte(s, 16);
+                                            s = "";
+                                        }
+                                        else
+                                        {
+                                            s += number[i];
+                                        }
+                                    }
+                                    byte[] dataHeard = new byte[HEADER_LENGTH];
+                                    dataHeard[0] = 0x40;
+                                    dataHeard[1] = 0x41;
+                                    dataHeard[2] = 0x2f;
+                                    dataHeard[3] = 0x3f;
+                                    dataHeard[4] = buffer[4];
+                                    dataHeard[5] = buffer[5];
+                                    dataHeard[6] = buffer[6];
+                                    dataHeard[7] = buffer[7];
+                                    dataHeard[8] = (byte)(dataNum.Length & 0xFF);
+                                    dataHeard[9] = (byte)((dataNum.Length & 0xFF00) >> 8);
+                                    dataHeard[10] = (byte)((dataNum.Length & 0xFF0000) >> 16);
+                                    dataHeard[11] = (byte)((dataNum.Length & 0xFF000000) >> 24);
+                                    dataHeard[12] = virtuP.rePrinIndex;
+                                    dataHeard[13] = 2;
+                                    byte[] dataAll = new byte[HEADER_LENGTH + dataNum.Length];
+                                    Array.Copy(dataHeard, 0, dataAll, 0, HEADER_LENGTH);
+                                    Array.Copy(dataNum, 0, dataAll, HEADER_LENGTH, dataNum.Length);
+                                    setLog(dataAll, 5, number);
+                                    sendStream2.Write(dataAll, 0, dataAll.Length);
+                                }
+                                else if (buffer[12] == virtuP.printConmendIndex)
+                                {
+                                    //默认wife状态
+                                    var p = new Printershar();
+                                    byte[] dataStr = p.getReData();
                                     data = new byte[HEADER_LENGTH + dataStr.Length];
                                     for (int i = 0; i < data.Length; i++)
                                     {
@@ -668,7 +833,6 @@ namespace virtualPrint
                                             data[i] = dataStr[i - HEADER_LENGTH];
                                         }
                                     }
-                                    data[4] = 0x0A;
                                     //长度替换方法
                                     string len = Convert.ToString(dataStr.Length, 16);
                                     if (len.Length < 8)
@@ -682,7 +846,7 @@ namespace virtualPrint
                                     for (int le = 0; le < len.Length; le += 2)
                                     {
                                         string stl = len[le] + "" + len[le + 1];
-                                        data[19 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
+                                        data[11 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
                                     }
                                     setLog(data, 3, sn);
 
@@ -696,14 +860,15 @@ namespace virtualPrint
                             }
                             setLog(buffernew, 4, sn);
                             setLog2(buffernew, sn, bw);
-                        }
+                        } while (true);
                     }
-                    catch
-                    {
-                        log("关闭了数据通道!");
-                    }
-                    //将缓存中的数据写入传输流
-                } while (true);
+                }
+                catch
+                {
+                    log("关闭了数据通道!\r\n");
+                }
+                //将缓存中的数据写入传输流
+
             }
         }
 
@@ -736,5 +901,52 @@ namespace virtualPrint
             //    this.lb_num.Text = numPrinters.ToString();
             //}
         }
+
+        private void cmb_mState_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            cmb_cState.Items.Clear();
+            int mState = 0;
+            switch (cmb_mState.SelectedIndex)
+            {
+                case 0:
+                    cmb_cState.Items.Add("");
+                    mState = 2;//ready
+                    break;
+                case 1:
+                    cmb_cState.Items.Add("");
+                    mState = 3;
+                    break;
+                case 2:
+                    mState = 0xFF;
+                    cmb_cState.Items.Add("errDoorOpen");
+                    cmb_cState.Items.Add("errMediaEmpty");
+                    cmb_cState.Items.Add("errMarkerSupplyEmpty");
+                    cmb_cState.Items.Add("errMediaJam");
+                    break;
+                case 3:
+                    mState = 4;
+                    cmb_cState.Items.Add("warnMediaLow");
+                    cmb_cState.Items.Add("warnMarkerSupplyLow");
+                    cmb_cState.Items.Add("warnHeadTooHot");
+                    cmb_cState.Items.Add("warnNeedClean");
+                    break;
+            }
+            cmb_cState.SelectedIndex = 0;
+            Printershar.mState = mState;
+        }
+
+        private void cmb_cState_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            Printershar.cState = cmb_cState.SelectedIndex;
+        }
+    }
+    class virtuP
+    {
+        public const int sureIndex = 1;
+        public const int conmendIndex = 5;
+        public const int printIndex = 3;
+        public const int rePrinIndex = 4;
+        public const int printConmendIndex = 2;
+        public const int DevIndex = 1;
     }
 }
