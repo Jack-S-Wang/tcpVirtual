@@ -853,13 +853,16 @@ namespace virtualPrint
                                     sendStream2.Write(data, 0, data.Length);
                                 }
                             }
-                            byte[] buffernew = new byte[readSize];
-                            for (int i = 0; i < readSize; i++)
+                            if (buffer[12] == virtuP.printConmendIndex)
                             {
-                                buffernew[i] = buffer[i];
+                                byte[] buffernew = new byte[readSize];
+                                for (int i = 0; i < readSize; i++)
+                                {
+                                    buffernew[i] = buffer[i];
+                                }
+                                setLog(buffernew, 4, sn);
+                                setLog2(buffernew, sn, bw);
                             }
-                            setLog(buffernew, 4, sn);
-                            setLog2(buffernew, sn, bw);
                         } while (true);
                     }
                 }
