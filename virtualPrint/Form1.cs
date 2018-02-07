@@ -147,7 +147,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.3";
+            this.lb_banben.Text = "V5.1.4";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -467,7 +467,6 @@ namespace virtualPrint
                 }
                 try
                 {
-                    //log("重新读取数据\r\n");
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
                 }
                 catch
@@ -651,9 +650,9 @@ namespace virtualPrint
                     dataHeard[13] = 2;
                     int hreadall = 8;
                     //通用
-                    int hreadDev = 3;
-                    string sDev = model + ";" + number + ";1.2;1.3;2.3;1.2;";
-                    var sDbyte = Encoding.UTF8.GetBytes(sDev);
+                    int hreadWife = 3;
+                    string sWife = model + ";" + number + ";1.2;1.3;2.3;1.2;";
+                    var sDbyte = Encoding.UTF8.GetBytes(sWife);
                     //系统..... 固定6个字节
                     int infolength = 6;
                     int info = 368;
@@ -676,14 +675,14 @@ namespace virtualPrint
                         }
                     }
                     ssbytes[8] = 0x3B;
-                    int len = sDbyte.Length + ssbytes.Length + hreadall + hreadUser + hreadDev + infolength;
+                    int len = sDbyte.Length + ssbytes.Length + hreadall + hreadUser + hreadWife + infolength;
                     var sendBuffer = new byte[HEADER_LENGTH + len];
                     //头
                     Array.Copy(dataHeard, 0, sendBuffer, 0, HEADER_LENGTH);
                     //通用
-                    Array.Copy(sDbyte, 0, sendBuffer, HEADER_LENGTH + hreadall + hreadDev, sDbyte.Length);
+                    Array.Copy(sDbyte, 0, sendBuffer, HEADER_LENGTH + hreadall + hreadWife, sDbyte.Length);
                     //系统
-                    int len1 = HEADER_LENGTH + hreadall + hreadDev + sDbyte.Length;
+                    int len1 = HEADER_LENGTH + hreadall + hreadWife + sDbyte.Length;
                     sendBuffer[len1] = 0x06;
                     sendBuffer[len1 + 1] = 0x02;
                     sendBuffer[len1 + 2] = (byte)((len1 & 0xFF000000) >> 24);
@@ -691,12 +690,8 @@ namespace virtualPrint
                     sendBuffer[len1 + 4] = (byte)((len1 & 0xFF00) >> 8);
                     sendBuffer[len1 + 5] = (byte)(len1 & 0xFF);
                     //用户
-                    Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH + sDbyte.Length + hreadall + hreadDev + infolength + hreadUser, ssbytes.Length);
-                    //消息体总长度
-                    sendBuffer[8] = (byte)(len & 0xFF);
-                    sendBuffer[9] = (byte)((len & 0xFF00) >> 8);
-                    sendBuffer[10] = (byte)((len & 0xFF0000) >> 16);
-                    sendBuffer[11] = (byte)((len & 0xFF000000) >> 24);
+                    Array.Copy(ssbytes, 0, sendBuffer, HEADER_LENGTH + sDbyte.Length + hreadall + hreadWife + infolength + hreadUser, ssbytes.Length);
+                   
                     //所有信息返回消息头
                     sendBuffer[20] = 0x10;
                     sendBuffer[21] = 0x0c;
@@ -708,16 +703,93 @@ namespace virtualPrint
                     sendBuffer[26] = 0x03;
                     //通用
                     sendBuffer[27] = 0;
-                    sendBuffer[28] = (byte)(sDbyte.Length + hreadDev);
+                    sendBuffer[28] = (byte)(sDbyte.Length + hreadWife);
                     sendBuffer[29] = 0x01;
                     sendBuffer[30] = 0x3B;
                     //用户
-                    int len2 = HEADER_LENGTH + sDbyte.Length + hreadall + hreadDev + infolength;
+                    int len2 = HEADER_LENGTH + sDbyte.Length + hreadall + hreadWife + infolength;
                     sendBuffer[len2] = (byte)(hreadUser + ssbytes.Length);
                     sendBuffer[len2 + 1] = 0x03;
 
-                    setLog(sendBuffer, 1, number);
-                    stream.BeginWrite(sendBuffer, 0, sendBuffer.Length, OnWriteComplete, this);
+
+                    //获取设备信息内容
+                    //设备前部分8个字节
+                    int devHeard = 8;
+                    //主体01H
+                    int OneHeard = 3;
+                    string sDev=model + ";123656317;1.2;1.3;2.3;1.2;";
+                    var OneBody = Encoding.UTF8.GetBytes(sDev);
+                    byte[] OneBodyAll = new byte[OneHeard + OneBody.Length];
+                    OneBodyAll[0]=(byte)(OneBody.Length+OneHeard);
+                    OneBodyAll[1] = 0x1;
+                    OneBodyAll[2] = 0x3B;
+                    Array.Copy(OneBody, 0, OneBodyAll, OneHeard, OneBody.Length);
+
+                    //主体02H
+                    int TwoLen = 11;
+                    int buffer = 300;
+                    int frame = 500;
+                    byte[] TwoBodyAll = new byte[TwoLen];
+                    TwoBodyAll[0] = (byte)TwoLen;
+                    TwoBodyAll[1] = 0x02;
+                    TwoBodyAll[2] = (byte)(buffer >> 24);
+                    TwoBodyAll[3] = (byte)(buffer >> 16);
+                    TwoBodyAll[4] = (byte)(buffer >> 8);
+                    TwoBodyAll[5] = (byte)buffer;
+                    TwoBodyAll[6] = (byte)(frame >> 24);
+                    TwoBodyAll[7] = (byte)(frame >> 16);
+                    TwoBodyAll[8] = (byte)(frame >> 8);
+                    TwoBodyAll[9] = (byte)frame;
+                    TwoBodyAll[10] = 0x1;
+
+                    //主体03H
+                    int ThreeLen = 15;
+                    int pixW = 200;
+                    int pixH = 500;
+                    int pixB = 400;
+                    byte[] ThreeBodyAll = new byte[ThreeLen];
+                    ThreeBodyAll[0] = (byte)ThreeLen;
+                    ThreeBodyAll[1] = 0x03;
+                    ThreeBodyAll[2] = (byte)(pixW >> 8);
+                    ThreeBodyAll[3] = (byte)pixW;
+                    ThreeBodyAll[4] = (byte)(pixH >> 8);
+                    ThreeBodyAll[5] = (byte)pixH;
+                    ThreeBodyAll[6] = (byte)(pixB >> 24);
+                    ThreeBodyAll[7] = (byte)(pixB >> 16);
+                    ThreeBodyAll[8] = (byte)(pixB >> 8);
+                    ThreeBodyAll[9] = (byte)pixB;
+                    ThreeBodyAll[10] = 0x26;
+                    ThreeBodyAll[11] = 0x23;
+                    ThreeBodyAll[12] = 0x1;
+                    ThreeBodyAll[13] = 1;
+                    ThreeBodyAll[14] = 1;
+
+                    byte[] sendDev = new byte[devHeard + OneBodyAll.Length + TwoLen + ThreeLen];
+                    Array.Copy(OneBodyAll, 0, sendDev, devHeard, OneBodyAll.Length);
+                    Array.Copy(TwoBodyAll, 0, sendDev, devHeard + OneBodyAll.Length, TwoLen);
+                    Array.Copy(ThreeBodyAll, 0, sendDev, devHeard + OneBodyAll.Length + TwoLen, ThreeLen);
+                    sendDev[0] = 0x10;
+                    sendDev[1] = 0x0C;
+                    sendDev[2] = (byte)(4 + OneBodyAll.Length + TwoLen + ThreeLen);
+                    sendDev[3] = (byte)(4 + OneBodyAll.Length + TwoLen + ThreeLen);
+                    sendDev[4]=0;
+                    sendDev[5] = 1;
+                    sendDev[6] = 3;
+                    sendDev[7] = 0;
+
+                    //发送总内容
+                    byte[] sendBufferAll = new byte[sendBuffer.Length + sendDev.Length];
+                    Array.Copy(sendBuffer, 0, sendBufferAll, 0, sendBuffer.Length);
+                    Array.Copy(sendDev, 0, sendBufferAll, sendBuffer.Length, sendDev.Length);
+
+                    //消息体总长度
+                    sendBufferAll[8] = (byte)(len+sendDev.Length);
+                    sendBufferAll[9] = (byte)((len+sendDev.Length)>> 8);
+                    sendBufferAll[10] = (byte)((len+sendDev.Length)>> 16);
+                    sendBufferAll[11] = (byte)((len+sendDev.Length) >> 24);
+
+                    setLog(sendBufferAll, 1, number);
+                    stream.BeginWrite(sendBufferAll, 0, sendBufferAll.Length, OnWriteComplete, this);
                 }
                 catch
                 {
@@ -725,19 +797,24 @@ namespace virtualPrint
                 }
             }
 
-
+            List<string> liNumber = new List<string>();
             private void openTcp2(byte DevOrWife)
             {
-                TcpClient tcp2 = new TcpClient();
-                tcp2.Connect(ip, port2);
-                NetworkStream sendStream2 = tcp2.GetStream();
-                Thread thread2 = new Thread(ListenerServer2);
-                Stream st = new FileStream(@"./wenben/" + number + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create);
-                BinaryWriter bw = new BinaryWriter(st);
-                thread2.Start(new object[] { sendStream2, tcp2, thread2, number, bw, st, DevOrWife });
+                if (!liNumber.Contains(number))
+                {
+                    liNumber.Add(number);
+                    TcpClient tcp2 = new TcpClient();
+                    tcp2.Connect(ip, port2);
+                    NetworkStream sendStream2 = tcp2.GetStream();
+                    Thread thread2 = new Thread(ListenerServer2);
+                    Stream st = new FileStream(@"./wenben/" + number + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                    BinaryWriter bw = new BinaryWriter(st);
+                    thread2.Start(new object[] { sendStream2, tcp2, thread2, number, bw, st, DevOrWife });
+                }
+              
                
             }
-
+            List<byte> suff = new List<byte>();
             private void ListenerServer2(object Stream)
             {
                 object[] obj = Stream as object[];
@@ -760,9 +837,9 @@ namespace virtualPrint
                         do
                         {
                             int readSize;
-                            byte[] buffer = new byte[8000];
+                            byte[] buffer = new byte[5000];
                             byte[] data = null;
-                            readSize = sendStream2.Read(buffer, 0, 8000);
+                            readSize = sendStream2.Read(buffer, 0, 5000);
                             if (readSize == 0)
                             {
                                 bw.Close();
@@ -773,107 +850,133 @@ namespace virtualPrint
                                     tcp2.Close();
                                     thread2.Abort();
                                 }
-                                return;
+                                liNumber.Remove(number);
+                                break;
                             }
                             else//说明时打印信息
                             {
-                                if (buffer[12] == virtuP.rePrinIndex)
+                                byte[] buff = new byte[readSize];
+                                suff.AddRange(buff);
+                                int bodysize=0;
+                                while (CompleteMessage(ref bodysize))
                                 {
-                                    byte[] dataNum = new byte[8];
-                                    string s = "";
-                                    for (int i = 0; i < number.Length; i++)
+                                    if (suff[12] == virtuP.rePrinIndex)
                                     {
-                                        if (i % 2 != 0)
+                                        byte[] dataNum = new byte[8];
+                                        string s = "";
+                                        for (int i = 0; i < number.Length; i++)
                                         {
-                                            s += number[i];
-                                            int index = (i + 1) / 2;
-                                            dataNum[index - 1] = Convert.ToByte(s, 16);
-                                            s = "";
+                                            if (i % 2 != 0)
+                                            {
+                                                s += number[i];
+                                                int index = (i + 1) / 2;
+                                                dataNum[index - 1] = Convert.ToByte(s, 16);
+                                                s = "";
+                                            }
+                                            else
+                                            {
+                                                s += number[i];
+                                            }
                                         }
-                                        else
-                                        {
-                                            s += number[i];
-                                        }
+                                        byte[] dataHeard = new byte[HEADER_LENGTH];
+                                        dataHeard[0] = 0x40;
+                                        dataHeard[1] = 0x41;
+                                        dataHeard[2] = 0x2f;
+                                        dataHeard[3] = 0x3f;
+                                        dataHeard[4] = buffer[4];
+                                        dataHeard[5] = buffer[5];
+                                        dataHeard[6] = buffer[6];
+                                        dataHeard[7] = buffer[7];
+                                        dataHeard[8] = (byte)(dataNum.Length & 0xFF);
+                                        dataHeard[9] = (byte)((dataNum.Length & 0xFF00) >> 8);
+                                        dataHeard[10] = (byte)((dataNum.Length & 0xFF0000) >> 16);
+                                        dataHeard[11] = (byte)((dataNum.Length & 0xFF000000) >> 24);
+                                        dataHeard[12] = virtuP.rePrinIndex;
+                                        dataHeard[13] = 2;
+                                        byte[] dataAll = new byte[HEADER_LENGTH + dataNum.Length];
+                                        Array.Copy(dataHeard, 0, dataAll, 0, HEADER_LENGTH);
+                                        Array.Copy(dataNum, 0, dataAll, HEADER_LENGTH, dataNum.Length);
+                                        setLog(dataAll, 5, number);
+                                        sendStream2.Write(dataAll, 0, dataAll.Length);
                                     }
-                                    byte[] dataHeard = new byte[HEADER_LENGTH];
-                                    dataHeard[0] = 0x40;
-                                    dataHeard[1] = 0x41;
-                                    dataHeard[2] = 0x2f;
-                                    dataHeard[3] = 0x3f;
-                                    dataHeard[4] = buffer[4];
-                                    dataHeard[5] = buffer[5];
-                                    dataHeard[6] = buffer[6];
-                                    dataHeard[7] = buffer[7];
-                                    dataHeard[8] = (byte)(dataNum.Length & 0xFF);
-                                    dataHeard[9] = (byte)((dataNum.Length & 0xFF00) >> 8);
-                                    dataHeard[10] = (byte)((dataNum.Length & 0xFF0000) >> 16);
-                                    dataHeard[11] = (byte)((dataNum.Length & 0xFF000000) >> 24);
-                                    dataHeard[12] = virtuP.rePrinIndex;
-                                    dataHeard[13] = 2;
-                                    byte[] dataAll = new byte[HEADER_LENGTH + dataNum.Length];
-                                    Array.Copy(dataHeard, 0, dataAll, 0, HEADER_LENGTH);
-                                    Array.Copy(dataNum, 0, dataAll, HEADER_LENGTH, dataNum.Length);
-                                    setLog(dataAll, 5, number);
-                                    sendStream2.Write(dataAll, 0, dataAll.Length);
-                                }
-                                else if (buffer[12] == virtuP.printConmendIndex)
-                                {
-                                    //默认wife状态
-                                    var p = new Printershar();
-                                    byte[] dataStr = p.getReData();
-                                    data = new byte[HEADER_LENGTH + dataStr.Length];
-                                    for (int i = 0; i < data.Length; i++)
+                                    else if (suff[12] == virtuP.printConmendIndex)
                                     {
-                                        if (i < HEADER_LENGTH)
+                                        //默认wife状态
+                                        var p = new Printershar();
+                                        byte[] dataStr = p.getReData();
+                                        data = new byte[HEADER_LENGTH + dataStr.Length];
+                                        for (int i = 0; i < data.Length; i++)
                                         {
-                                            data[i] = buffer[i];
+                                            if (i < HEADER_LENGTH)
+                                            {
+                                                data[i] = buffer[i];
+                                            }
+                                            else
+                                            {
+                                                data[i] = dataStr[i - HEADER_LENGTH];
+                                            }
                                         }
-                                        else
+                                        //长度替换方法
+                                        string len = Convert.ToString(dataStr.Length, 16);
+                                        if (len.Length < 8)
                                         {
-                                            data[i] = dataStr[i - HEADER_LENGTH];
+                                            int num = 8 - len.Length;
+                                            for (int cl = 0; cl < num; cl++)
+                                            {
+                                                len = 0 + len;
+                                            }
                                         }
-                                    }
-                                    //长度替换方法
-                                    string len = Convert.ToString(dataStr.Length, 16);
-                                    if (len.Length < 8)
-                                    {
-                                        int num = 8 - len.Length;
-                                        for (int cl = 0; cl < num; cl++)
+                                        for (int le = 0; le < len.Length; le += 2)
                                         {
-                                            len = 0 + len;
+                                            string stl = len[le] + "" + len[le + 1];
+                                            data[11 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
                                         }
-                                    }
-                                    for (int le = 0; le < len.Length; le += 2)
-                                    {
-                                        string stl = len[le] + "" + len[le + 1];
-                                        data[11 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
-                                    }
-                                    setLog(data, 3, sn);
+                                        setLog(data, 3, sn);
 
-                                    sendStream2.Write(data, 0, data.Length);
+                                        sendStream2.Write(data, 0, data.Length);
+                                    }
+                                    if (suff[12] == virtuP.printConmendIndex)
+                                    {
+                                        byte[] buffernew = new byte[readSize];
+                                        for (int i = 0; i < readSize; i++)
+                                        {
+                                            buffernew[i] = suff[i];
+                                        }
+                                        setLog(buffernew, 4, sn);
+                                        setLog2(buffernew, sn, bw);
+                                    }
+                                    suff.RemoveRange(0, HEADER_LENGTH + bodysize);
                                 }
+                               
                             }
-                            if (buffer[12] == virtuP.printConmendIndex)
-                            {
-                                byte[] buffernew = new byte[readSize];
-                                for (int i = 0; i < readSize; i++)
-                                {
-                                    buffernew[i] = buffer[i];
-                                }
-                                setLog(buffernew, 4, sn);
-                                setLog2(buffernew, sn, bw);
-                            }
+                           
                         } while (true);
                     }
                 }
                 catch
                 {
+                    liNumber.Remove(number);
                     log("关闭了数据通道!\r\n");
                 }
                 //将缓存中的数据写入传输流
+            }
+            public bool CompleteMessage(ref int bodySize)
+            {
+                if (received.Count < HEADER_LENGTH)
+                {
+                    return false;
+                }
 
+                bodySize =
+                   suff[8] +
+                   suff[9] * 256 +
+                   suff[10] * 256 * 256 +
+                   suff[11] * 256 * 256 * 256;
+
+                return received.Count >= HEADER_LENGTH + bodySize;
             }
         }
+      
 
         private void button3_Click(object sender, EventArgs e)
         {
