@@ -129,6 +129,7 @@ namespace virtualPrint
 
         private void button2_Click(object sender, EventArgs e)
         {
+            addText("执行关闭操作\r\n");
             lock (objectLock)
             {
                 if (Print.dic.Count > 0)
@@ -147,7 +148,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.5";
+            this.lb_banben.Text = "V5.1.6";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -856,6 +857,7 @@ namespace virtualPrint
                             else//说明时打印信息
                             {
                                 byte[] buff = new byte[readSize];
+                                Array.Copy(buffer, 0, buff, 0, readSize);
                                 suff.AddRange(buff);
                                 int bodysize=0;
                                 while (CompleteMessage(ref bodysize))
@@ -962,7 +964,7 @@ namespace virtualPrint
             }
             public bool CompleteMessage(ref int bodySize)
             {
-                if (received.Count < HEADER_LENGTH)
+                if (suff.Count < HEADER_LENGTH)
                 {
                     return false;
                 }
@@ -973,7 +975,7 @@ namespace virtualPrint
                    suff[10] * 256 * 256 +
                    suff[11] * 256 * 256 * 256;
 
-                return received.Count >= HEADER_LENGTH + bodySize;
+                return suff.Count >= HEADER_LENGTH + bodySize;
             }
         }
       
