@@ -105,10 +105,10 @@ namespace virtualPrint.printerDev
             //0x31
             byte[] dData = new byte[] { 0x0B, 0x31, 0, 0, 0, 0, 0, 0, 0, 0, 0x1A };
             int index=rd.Next(500, 1500);
-            dData[6] = (byte)((index & 0xFF000000) >> 24);
-            dData[5] = (byte)((index & 0xFF0000) >> 16);
-            dData[4] = (byte)((index & 0xFF00) >> 8);
-            dData[3]=(byte)(index&0xFF);
+            dData[3] = (byte)((index & 0xFF000000) >> 24);
+            dData[4] = (byte)((index & 0xFF0000) >> 16);
+            dData[5] = (byte)((index & 0xFF00) >> 8);
+            dData[6]=(byte)(index&0xFF);
             switch (codeData)
             {
                 case 0:
