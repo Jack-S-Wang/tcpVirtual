@@ -147,7 +147,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.8";
+            this.lb_banben.Text = "V5.1.9";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -529,6 +529,9 @@ namespace virtualPrint
                         log("信息获取失败!\r\n");
                         break;
                     case 3:
+                        log("该设备已登录\r\n");
+                        break;
+                    case 4:
                         log("其他错误，未定义\r\n");
                         break;
                 }
@@ -664,7 +667,7 @@ namespace virtualPrint
                     int info = 368;
                     //用户
                     int hreadUser = 2;
-                    byte[] ssbytes = new byte[9];
+                    byte[] ssbytes = new byte[10];
                     string s = "";
                     for (int i = 0; i < number.Length; i++)
                     {
@@ -672,7 +675,7 @@ namespace virtualPrint
                         {
                             s += number[i];
                             int index = (i + 1) / 2;
-                            ssbytes[index - 1] = Convert.ToByte(s, 16);
+                            ssbytes[index] = Convert.ToByte(s, 16);
                             s = "";
                         }
                         else
@@ -680,7 +683,8 @@ namespace virtualPrint
                             s += number[i];
                         }
                     }
-                    ssbytes[8] = 0x3B;
+                    ssbytes[0] = 8;
+                    ssbytes[9] = 0x3B;
                     int len = sDbyte.Length + ssbytes.Length + hreadall + hreadUser + hreadWife + infolength;
                     var sendBuffer = new byte[HEADER_LENGTH + len];
                     //头
@@ -850,6 +854,7 @@ namespace virtualPrint
                 catch
                 {
                     log("数据通道打开失败！");
+                    Print.liNumber.Remove(number);
                     return;
                 }
             }
@@ -874,6 +879,7 @@ namespace virtualPrint
                 catch
                 {
                     log("设备" + number + "读取失败！");
+                    Print.liNumber.Remove(number);
                     return;
                 }
                 try
@@ -883,6 +889,7 @@ namespace virtualPrint
                 catch
                 {
                     log("设备" + number + "发送数据结构内容出现错误！");
+                    Print.liNumber.Remove(number);
                     return;
                 }
                 try
@@ -892,6 +899,7 @@ namespace virtualPrint
                 catch
                 {
                     log("设备" + number + "再次读取数据信息失败！");
+                    Print.liNumber.Remove(number);
                     return;
                 }
             }
