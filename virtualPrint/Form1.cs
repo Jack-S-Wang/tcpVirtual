@@ -147,7 +147,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.9";
+            this.lb_banben.Text = "V5.1.10";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -667,7 +667,7 @@ namespace virtualPrint
                     int info = 368;
                     //用户
                     int hreadUser = 2;
-                    byte[] ssbytes = new byte[10];
+                    byte[] ssbytes = new byte[9];
                     string s = "";
                     for (int i = 0; i < number.Length; i++)
                     {
@@ -684,7 +684,6 @@ namespace virtualPrint
                         }
                     }
                     ssbytes[0] = 8;
-                    ssbytes[9] = 0x3B;
                     int len = sDbyte.Length + ssbytes.Length + hreadall + hreadUser + hreadWife + infolength;
                     var sendBuffer = new byte[HEADER_LENGTH + len];
                     //头
