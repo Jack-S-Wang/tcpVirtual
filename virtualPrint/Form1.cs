@@ -147,7 +147,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.10";
+            this.lb_banben.Text = "V5.1.11";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -254,7 +254,14 @@ namespace virtualPrint
 
         public void addText(string str)
         {
-            textBox3.AppendText(str);
+            try
+            {
+                textBox3.AppendText(str);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
 
@@ -268,9 +275,15 @@ namespace virtualPrint
 
         private void textBox3_TextChanged(object sender, EventArgs e)
         {
-            if (textBox3.TextLength > 4000)
+            try
             {
-                textBox3.Clear();
+                if (textBox3.TextLength > 4000)
+                {
+                    textBox3.ClearUndo();
+                }
+            }catch(Exception ex)
+            {
+                MessageBox.Show(ex.Message);
             }
         }
 
@@ -289,7 +302,6 @@ namespace virtualPrint
                 received = new List<byte>();
                 closed = false;
                 this.number = number;
-
                 Interlocked.Increment(ref connCount);
                 // BeginConnect 必须是构造函数中最后一个操作。
                 client.BeginConnect(ip, port1, OnConnectComplete, null);
@@ -332,10 +344,16 @@ namespace virtualPrint
 
             public void log(string l)
             {
-                var x = OnPrintLog;
-                if (x != null)
+                try
                 {
-                    x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + l);
+                    var x = OnPrintLog;
+                    if (x != null)
+                    {
+                        x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + l );
+                    }
+                }catch(Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
                 }
             }
 
@@ -444,9 +462,9 @@ namespace virtualPrint
                         received.AddRange(tmp);
                     }
                 }
-                catch
+                catch(Exception ex)
                 {
-                    log("已经断开TCP连接");
+                    log("已经断开TCP连接" + " 异常：" +ex.Message+"\r\n");
                     Interlocked.Decrement(ref openCount);
                     client.Close();
                     stream.Dispose();
@@ -455,8 +473,6 @@ namespace virtualPrint
                         dic.Remove(this);
                     }
                     //getConnec();
-
-
                 }
                 try
                 {
@@ -470,9 +486,9 @@ namespace virtualPrint
                 {
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
                 }
-                catch
+                catch(Exception ex)
                 {
-                    log("服务器可能已经关闭该连接！");
+                    log("服务器可能已经关闭该连接！" + " 异常：" + ex.Message + "\r\n");
                 }
 
             }
@@ -494,6 +510,7 @@ namespace virtualPrint
                 }
 
                 isBeat = true;
+                lastTimeoutCheck = DateTime.Now;
                 int time = ((received[23] << 8) + received[22]) * 2000;
                 ti.Enabled = true;
                 ti.Interval = time;
@@ -503,6 +520,7 @@ namespace virtualPrint
                     {
                         if (!isBeat)
                         {
+                            log("设备："+number+" 最后认证时间："+ lastTimeoutCheck + "超时：" + DateTime.Now + "\r\n");
                             client.Close();
                             stream.Close();
                             stream.Dispose();
@@ -511,7 +529,7 @@ namespace virtualPrint
                         else
                         {
                             isBeat = false;
-                            lastTimeoutCheck = DateTime.Now;
+                            
                         }
                     }
                 });
@@ -589,9 +607,9 @@ namespace virtualPrint
 
             public void HandleNormalData(int read)
             {
-                //log("读取到"+read+" \r\n");
                 int bodySize = 0;
                 isBeat = true;
+                lastTimeoutCheck = DateTime.Now;
                 while (HasCompleteMessage(ref bodySize))
                 {
 
@@ -797,6 +815,12 @@ namespace virtualPrint
                     sendBufferAll[10] = (byte)((len + sendDev.Length) >> 16);
                     sendBufferAll[11] = (byte)((len + sendDev.Length) >> 24);
 
+
+                    //sendBuffer[8] = (byte)(len );
+                    //sendBuffer[9] = (byte)((len) >> 8);
+                    //sendBuffer[10] = (byte)((len) >> 16);
+                    //sendBuffer[11] = (byte)((len) >> 24);
+
                     setLog(sendBufferAll, 1, number);
                     stream.BeginWrite(sendBufferAll, 0, sendBufferAll.Length, OnWriteComplete, this);
                 }
@@ -829,7 +853,7 @@ namespace virtualPrint
             void log(string str)
             {
                 var x = logger;
-                x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + str);
+                x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + str );
             }
             string number;
             TcpClient client = new TcpClient();
@@ -850,9 +874,9 @@ namespace virtualPrint
                         stream.BeginRead(buffer, 0, buffer.Length, onReadCall, this);
                     }
                 }
-                catch
+                catch(Exception ex)
                 {
-                    log("数据通道打开失败！");
+                    log("数据通道打开失败！" + " 异常：" + ex.Message + "\r\n");
                     Print.liNumber.Remove(number);
                     return;
                 }
@@ -865,7 +889,7 @@ namespace virtualPrint
                     int readCount = stream.EndRead(ar);
                     if (readCount == 0)
                     {
-                        log("设备" + number + "数据通道关闭！");
+                        log("设备" + number + "数据通道关闭！" + " 端口：" + client.Client.LocalEndPoint + "\r\n");
                         bw.Close();
                         st.Close();
                         Print.liNumber.Remove(number);
@@ -875,9 +899,9 @@ namespace virtualPrint
                     Array.Copy(buffer, 0, buf, 0, readCount);
                     reciced.AddRange(buf);
                 }
-                catch
+                catch(Exception ex)
                 {
-                    log("设备" + number + "读取失败！");
+                    log("设备" + number + "读取失败！" + " 异常：" + ex.Message + "\r\n");
                     Print.liNumber.Remove(number);
                     return;
                 }
@@ -895,9 +919,9 @@ namespace virtualPrint
                 {
                     stream.BeginRead(buffer, 0, buffer.Length, onReadCall, this);
                 }
-                catch
+                catch(Exception ex)
                 {
-                    log("设备" + number + "再次读取数据信息失败！");
+                    log("设备" + number + "再次读取数据信息失败！" + " 异常：" + ex.Message + "\r\n");
                     Print.liNumber.Remove(number);
                     return;
                 }
