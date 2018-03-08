@@ -982,7 +982,7 @@ namespace virtualPrint
                         {
                             if (i < Print.HEADER_LENGTH)
                             {
-                                data[i] = buffer[i];
+                                data[i] = reciced[i];
                             }
                             else
                             {
