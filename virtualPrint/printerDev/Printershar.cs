@@ -101,7 +101,7 @@ namespace virtualPrint.printerDev
             byte[] data = new byte[] { 0x10, 0x09, 0, 0 };
             int len=0;
             //0x30
-            byte[] dInfo = new byte[] { 0x0A, 0x30, 0, 0, 0, 0, 0, 1, 2, 2 };
+            byte[] dInfo = new byte[] { 0x0A, 0x30, 0, 0, 3, 0, 0, 1, 2, 2 };
             //0x31
             byte[] dData = new byte[] { 0x0B, 0x31, 0, 0, 0, 0, 0, 0, 0, 0, 0x1A };
             int index=rd.Next(9000, 15000);

@@ -147,7 +147,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.11";
+            this.lb_banben.Text = "V5.1.14";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -281,7 +281,8 @@ namespace virtualPrint
                 {
                     textBox3.ClearUndo();
                 }
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
@@ -328,6 +329,7 @@ namespace virtualPrint
             public readonly string number;
             public static volatile int connCount = 0;
             public static string model = "";
+            public static volatile int printSendCount = 0;
             public string sn()
             {
                 return index.ToString();
@@ -349,9 +351,14 @@ namespace virtualPrint
                     var x = OnPrintLog;
                     if (x != null)
                     {
-                        x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + l );
+                        //if (number.Equals("000AF92CE7010006"))
+                        {
+                            x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + l);
+                            //x(number + "心跳发送时间：" + dateHeart+"\r\n");
+                        }
                     }
-                }catch(Exception ex)
+                }
+                catch (Exception ex)
                 {
                     MessageBox.Show(ex.Message);
                 }
@@ -374,7 +381,6 @@ namespace virtualPrint
                         {
                             dic.Add(this);
                             Interlocked.Increment(ref openCount);
-
                         }
                     }
                 }
@@ -431,7 +437,10 @@ namespace virtualPrint
 
                 }
             }
-
+            /// <summary>
+            /// 异步读取
+            /// </summary>
+            /// <param name="ar"></param>
             public void OnReadComplete(IAsyncResult ar)
             {
                 if (closed)
@@ -445,8 +454,7 @@ namespace virtualPrint
                     var read = stream.EndRead(ar);
                     if (read == 0)
                     {
-                        log("服务器无数据！本地端口：" + client.Client.LocalEndPoint.ToString() +
-                            "，已读取数据字节数：" + bytesReceived + "，读取完成次数：" + readCompleteCount + "\r\n");
+                        log("服务器无数据！本地端口：" + client.Client.LocalEndPoint.ToString() +"\r\n");
                         stream.Dispose();
                         client.Close();
                         (client as IDisposable).Dispose();
@@ -462,9 +470,9 @@ namespace virtualPrint
                         received.AddRange(tmp);
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    log("已经断开TCP连接" + " 异常：" +ex.Message+"\r\n");
+                    log("已经断开TCP连接" + " 异常：" + ex.Message + "\r\n");
                     Interlocked.Decrement(ref openCount);
                     client.Close();
                     stream.Dispose();
@@ -481,19 +489,25 @@ namespace virtualPrint
                 catch (Exception ex)
                 {
                     log("出现一个未知的错误信息！" + string.Format("异常{0}，追踪{1}", ex, ex.StackTrace));
+                    Interlocked.Decrement(ref openCount);
                 }
                 try
                 {
                     stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, OnReadComplete, this);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    log("服务器可能已经关闭该连接！" + " 异常：" + ex.Message + "\r\n");
+                    log("已经关闭了该连接！" + " 异常：" + ex.Message + "\r\n");
+                    Interlocked.Decrement(ref openCount);
                 }
 
             }
 
             private DateTime lastTimeoutCheck = DateTime.Now;
+            /// <summary>
+            /// 返回数据信息验证结果
+            /// </summary>
+            /// <param name="received"></param>
             private void OnAuthenticationResponse(byte[] received)
             {
                 if (received.Length != 24)
@@ -520,7 +534,7 @@ namespace virtualPrint
                     {
                         if (!isBeat)
                         {
-                            log("设备："+number+" 最后认证时间："+ lastTimeoutCheck + "超时：" + DateTime.Now + "\r\n");
+                            log("设备：" + number + " 最后认证时间：" + lastTimeoutCheck + "超时：" + DateTime.Now + "\r\n");
                             client.Close();
                             stream.Close();
                             stream.Dispose();
@@ -529,7 +543,7 @@ namespace virtualPrint
                         else
                         {
                             isBeat = false;
-                            
+
                         }
                     }
                 });
@@ -556,6 +570,10 @@ namespace virtualPrint
             }
 
             public static List<string> liNumber = new List<string>();
+            /// <summary>
+            /// 打印通知开启数据通道
+            /// </summary>
+            /// <param name="received"></param>
             private void OnPrintRequest(byte[] received)
             {
                 if (received.Length != HEADER_LENGTH)
@@ -564,13 +582,19 @@ namespace virtualPrint
                 }
                 if (!liNumber.Contains(number))
                 {
+                    Interlocked.Increment(ref printSendCount);
                     liNumber.Add(number);
                     new dataPrint(ip, port2, this.OnPrintLog, number);
                 }
             }
-
+            string dateHeart = "";
+            /// <summary>
+            /// 发送心跳内容
+            /// </summary>
+            /// <param name="received"></param>
             private void OnCommandOrHeartbeat(byte[] received)
             {
+                isBeat = true;
                 var p = new Printershar(received);
                 var data = p.getReData();
                 if (p.contorlTo)
@@ -587,6 +611,7 @@ namespace virtualPrint
                 dataAll1[11] = (byte)((data.Length & 0xFF000000) >> 24);
                 try
                 {
+                    dateHeart = DateTime.Now.ToString();
                     stream.BeginWrite(dataAll1, 0, dataAll1.Length, OnWriteComplete, this);
                     //log("心跳回复已发送。\r\n");
                 }
@@ -595,7 +620,10 @@ namespace virtualPrint
                     log("写入数据失败!\r\n");
                 }
             }
-
+            /// <summary>
+            /// 标头固定值是否一致
+            /// </summary>
+            /// <returns></returns>
             private bool IsValidHeaderSignature()
             {
                 return received[0] == 0x40 && received[1] == 0x41 && received[2] == 0x2f && received[3] == 0x3f;
@@ -604,7 +632,10 @@ namespace virtualPrint
             private int bytesReceived = 0;
 
             private int readCompleteCount = 0;
-
+            /// <summary>
+            /// 读取到数据进行分类处理
+            /// </summary>
+            /// <param name="read"></param>
             public void HandleNormalData(int read)
             {
                 int bodySize = 0;
@@ -642,7 +673,11 @@ namespace virtualPrint
                 }
 
             }
-
+            /// <summary>
+            /// 验证是否是一个完整的消息结构
+            /// </summary>
+            /// <param name="bodySize"></param>
+            /// <returns></returns>
             public bool HasCompleteMessage(ref int bodySize)
             {
                 if (received.Count < HEADER_LENGTH)
@@ -659,6 +694,9 @@ namespace virtualPrint
                 return received.Count >= HEADER_LENGTH + bodySize;
             }
 
+            /// <summary>
+            /// 认证发送信息
+            /// </summary>
             public void HandleAuthentication()
             {
                 try
@@ -853,7 +891,7 @@ namespace virtualPrint
             void log(string str)
             {
                 var x = logger;
-                x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + str );
+                x(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + ":" + str);
             }
             string number;
             TcpClient client = new TcpClient();
@@ -862,6 +900,7 @@ namespace virtualPrint
             byte[] buffer = new byte[2000];
             BinaryWriter bw;
             Stream st;
+            public static volatile int printSuerCount = 0;
             private void onConnectCall(IAsyncResult ar)
             {
                 try
@@ -870,11 +909,12 @@ namespace virtualPrint
                     stream = client.GetStream();
                     if (stream != null)
                     {
-                        log("设备" + number + "：打开数据通道成功！");
+                        Interlocked.Increment(ref printSuerCount);
+                        log("设备" + number + "：打开数据通道成功！\r\n");
                         stream.BeginRead(buffer, 0, buffer.Length, onReadCall, this);
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     log("数据通道打开失败！" + " 异常：" + ex.Message + "\r\n");
                     Print.liNumber.Remove(number);
@@ -899,9 +939,9 @@ namespace virtualPrint
                     Array.Copy(buffer, 0, buf, 0, readCount);
                     reciced.AddRange(buf);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    log("设备" + number + "读取失败！" + " 异常：" + ex.Message + "\r\n");
+                    log("设备" + number + "数据通道读取失败！" + " 异常：" + ex.Message + "\r\n");
                     Print.liNumber.Remove(number);
                     return;
                 }
@@ -911,7 +951,7 @@ namespace virtualPrint
                 }
                 catch
                 {
-                    log("设备" + number + "发送数据结构内容出现错误！");
+                    log("设备" + number + "数据通道发送数据结构内容出现错误！");
                     Print.liNumber.Remove(number);
                     return;
                 }
@@ -919,9 +959,9 @@ namespace virtualPrint
                 {
                     stream.BeginRead(buffer, 0, buffer.Length, onReadCall, this);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    log("设备" + number + "再次读取数据信息失败！" + " 异常：" + ex.Message + "\r\n");
+                    log("设备" + number + "数据通道再次读取数据信息失败！" + " 异常：" + ex.Message + "\r\n");
                     Print.liNumber.Remove(number);
                     return;
                 }
@@ -1052,7 +1092,8 @@ namespace virtualPrint
 
         private void button3_Click(object sender, EventArgs e)
         {
-            BeginInvoke(new retext(textBox3.AppendText), "连接总数：" + Print.openCount + " 已认证数:" + Print.conncedCount + " Tcp实际打开数:" + Print.connCount + "\r\n");
+            BeginInvoke(new retext(textBox3.AppendText), "连接总数：" + Print.openCount + " 已认证数:" + Print.conncedCount + " Tcp实际打开数:" + Print.connCount
+                + "数据通道连接成功数：" + dataPrint.printSuerCount + " 控制发送打开数据的实际数：" + Print.printSendCount + "\r\n");
         }
 
         private void txb_endNum_KeyPress(object sender, KeyPressEventArgs e)
@@ -1116,6 +1157,12 @@ namespace virtualPrint
         private void cmb_cState_SelectedIndexChanged(object sender, EventArgs e)
         {
             Printershar.cState = cmb_cState.SelectedIndex;
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            Print.printSendCount = 0;
+            dataPrint.printSuerCount = 0;
         }
     }
     class virtuP

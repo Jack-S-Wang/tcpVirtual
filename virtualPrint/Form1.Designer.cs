@@ -30,6 +30,7 @@
         {
             this.panel1 = new System.Windows.Forms.Panel();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.button4 = new System.Windows.Forms.Button();
             this.txb_model = new System.Windows.Forms.TextBox();
             this.label11 = new System.Windows.Forms.Label();
             this.cmb_cState = new System.Windows.Forms.ComboBox();
@@ -83,6 +84,7 @@
             // 
             // groupBox3
             // 
+            this.groupBox3.Controls.Add(this.button4);
             this.groupBox3.Controls.Add(this.txb_model);
             this.groupBox3.Controls.Add(this.label11);
             this.groupBox3.Controls.Add(this.cmb_cState);
@@ -95,6 +97,16 @@
             this.groupBox3.TabIndex = 4;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "状态选择";
+            // 
+            // button4
+            // 
+            this.button4.Location = new System.Drawing.Point(272, 75);
+            this.button4.Name = "button4";
+            this.button4.Size = new System.Drawing.Size(75, 23);
+            this.button4.TabIndex = 6;
+            this.button4.Text = "清理发送打印数据次数";
+            this.button4.UseVisualStyleBackColor = true;
+            this.button4.Click += new System.EventHandler(this.button4_Click);
             // 
             // txb_model
             // 
@@ -445,6 +457,7 @@
         private System.Windows.Forms.ComboBox cmb_mState;
         private System.Windows.Forms.TextBox txb_model;
         private System.Windows.Forms.Label label11;
+        private System.Windows.Forms.Button button4;
     }
 }
 
