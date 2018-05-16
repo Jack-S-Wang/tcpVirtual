@@ -12,6 +12,7 @@ using System.Threading;
 using System.IO;
 using virtualPrint.printerDev;
 using System.Xml.Serialization;
+using System.Collections.Concurrent;
 
 namespace virtualPrint
 {
@@ -147,7 +148,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.14";
+            this.lb_banben.Text = "V5.1.16";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -504,6 +505,7 @@ namespace virtualPrint
             }
 
             private DateTime lastTimeoutCheck = DateTime.Now;
+
             /// <summary>
             /// 返回数据信息验证结果
             /// </summary>
@@ -568,7 +570,7 @@ namespace virtualPrint
                         break;
                 }
             }
-
+            private static ConcurrentDictionary<string, dataPrint> cdic = new ConcurrentDictionary<string, dataPrint>();
             public static List<string> liNumber = new List<string>();
             /// <summary>
             /// 打印通知开启数据通道
@@ -584,7 +586,16 @@ namespace virtualPrint
                 {
                     Interlocked.Increment(ref printSendCount);
                     liNumber.Add(number);
-                    new dataPrint(ip, port2, this.OnPrintLog, number);
+                    var dp=new dataPrint(ip, port2, this.OnPrintLog, number);
+                    cdic.TryAdd(number, dp);
+                }else
+                {
+                    Interlocked.Decrement(ref printSendCount);
+                    dataPrint dp;
+                    cdic.TryRemove(number, out dp);
+                    dp.closeThread();
+                    var ndp=new dataPrint(ip, port2, this.OnPrintLog, number);
+                    cdic.TryAdd(number, ndp);
                 }
             }
             string dateHeart = "";
@@ -720,10 +731,9 @@ namespace virtualPrint
                     var sDbyte = Encoding.UTF8.GetBytes(sWife);
                     //系统..... 固定6个字节
                     int infolength = 6;
-                    int info = 368;
                     //用户
                     int hreadUser = 2;
-                    byte[] ssbytes = new byte[9];
+                    byte[] ssbytes = new byte[11];
                     string s = "";
                     for (int i = 0; i < number.Length; i++)
                     {
@@ -740,6 +750,8 @@ namespace virtualPrint
                         }
                     }
                     ssbytes[0] = 8;
+                    ssbytes[9] = 1;
+                    ssbytes[10] = 1;
                     int len = sDbyte.Length + ssbytes.Length + hreadall + hreadUser + hreadWife + infolength;
                     var sendBuffer = new byte[HEADER_LENGTH + len];
                     //头
@@ -901,6 +913,18 @@ namespace virtualPrint
             BinaryWriter bw;
             Stream st;
             public static volatile int printSuerCount = 0;
+
+            public void closeThread()
+            {
+                var thread = Thread.CurrentThread;
+                client.Close();
+                stream.Close();
+                stream.Flush();
+                stream.Dispose();
+                thread.Abort();
+            }
+
+
             private void onConnectCall(IAsyncResult ar)
             {
                 try
