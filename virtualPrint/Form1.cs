@@ -26,7 +26,7 @@ namespace virtualPrint
         public delegate void retext(string str);
         static object objectLock = new object();
 
-        static FileStream file = new FileStream(@"./wenben/log.txt", FileMode.OpenOrCreate);
+        //static FileStream file = new FileStream(@"./wenben/log.txt", FileMode.OpenOrCreate);
         private void button1_Click(object sender, EventArgs e)
         {
             try
@@ -148,7 +148,7 @@ namespace virtualPrint
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            this.lb_banben.Text = "V5.1.16";
+            this.lb_banben.Text = "V5.1.18";
             ToolTip tool = new ToolTip();
             tool.SetToolTip(this.txb_endNum, "如果设置为空则表示选择一台打印机！");
             tool.SetToolTip(this.button1, "如果重连请先等服务器将原来的数据处理完毕之后再重连！！！");
@@ -195,8 +195,8 @@ namespace virtualPrint
                     Print.dic.Clear();
                 }
             }
-            file.Flush();
-            file.Dispose();
+            //file.Flush();
+            //file.Dispose();
             Application.ExitThread();
         }
 
@@ -238,7 +238,7 @@ namespace virtualPrint
 
                 if (strByte != null)
                 {
-                    file.Write(strByte, 0, strByte.Length);
+                    //file.Write(strByte, 0, strByte.Length);
                 }
             }
         }
@@ -527,7 +527,7 @@ namespace virtualPrint
 
                 isBeat = true;
                 lastTimeoutCheck = DateTime.Now;
-                int time = ((received[23] << 8) + received[22]) * 2000;
+                int time = ((received[23] << 8) + received[22]) * 3000;
                 ti.Enabled = true;
                 ti.Interval = time;
                 ti.Elapsed += ((o, e) =>
@@ -611,7 +611,7 @@ namespace virtualPrint
                 if (p.contorlTo)
                 {
                     log(number + ":" + "{" + BitConverter.ToString(received) + "}\r\n");
-                    setLog(received, 2, number);
+                    //setLog(received, 2, number);
                 }
                 byte[] dataAll1 = new byte[HEADER_LENGTH + data.Length];
                 Array.Copy(received, 0, dataAll1, 0, HEADER_LENGTH);
@@ -871,7 +871,7 @@ namespace virtualPrint
                     //sendBuffer[10] = (byte)((len) >> 16);
                     //sendBuffer[11] = (byte)((len) >> 24);
 
-                    setLog(sendBufferAll, 1, number);
+                    //setLog(sendBufferAll, 1, number);
                     stream.BeginWrite(sendBufferAll, 0, sendBufferAll.Length, OnWriteComplete, this);
                 }
                 catch
@@ -893,8 +893,8 @@ namespace virtualPrint
                 this.port2 = port2;
                 this.logger = logger;
                 this.number = number;
-                st = new FileStream(@"./wenben/" + number + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-                this.bw = new BinaryWriter(st);
+                //st = new FileStream(@"./wenben/" + number + "_" + DateTime.Now.ToString("yyyy-MM-dd.HH.mm.ss") + ".dat", FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                //this.bw = new BinaryWriter(st);
                 client.BeginConnect(ip, port2, onConnectCall, this);
             }
             IPAddress ip;
@@ -910,8 +910,8 @@ namespace virtualPrint
             NetworkStream stream;
             List<byte> reciced = new List<byte>();
             byte[] buffer = new byte[2000];
-            BinaryWriter bw;
-            Stream st;
+            //BinaryWriter bw;
+            //Stream st;
             public static volatile int printSuerCount = 0;
 
             public void closeThread()
@@ -954,8 +954,8 @@ namespace virtualPrint
                     if (readCount == 0)
                     {
                         log("设备" + number + "数据通道关闭！" + " 端口：" + client.Client.LocalEndPoint + "\r\n");
-                        bw.Close();
-                        st.Close();
+                        //bw.Close();
+                        //st.Close();
                         Print.liNumber.Remove(number);
                         return;
                     }
@@ -1033,7 +1033,7 @@ namespace virtualPrint
                         byte[] dataAll = new byte[Print.HEADER_LENGTH + dataNum.Length];
                         Array.Copy(dataHeard, 0, dataAll, 0, Print.HEADER_LENGTH);
                         Array.Copy(dataNum, 0, dataAll, Print.HEADER_LENGTH, dataNum.Length);
-                        setLog(dataAll, 5, number);
+                        //setLog(dataAll, 5, number);
                         stream.BeginWrite(dataAll, 0, dataAll.Length, onEndWritCall, this);
                     }
                     else if (reciced[12] == virtuP.printConmendIndex)
@@ -1068,7 +1068,7 @@ namespace virtualPrint
                             string stl = len[le] + "" + len[le + 1];
                             data[11 - (le / 2)] = (byte)Convert.ToInt32(stl, 16);
                         }
-                        setLog(data, 3, number);
+                        //setLog(data, 3, number);
 
                         stream.BeginWrite(data, 0, data.Length, onEndWritCall, this);
                     }
@@ -1079,8 +1079,8 @@ namespace virtualPrint
                         {
                             buffernew[i] = reciced[i];
                         }
-                        setLog(buffernew, 4, number);
-                        setLog2(buffernew, number, bw);
+                        //setLog(buffernew, 4, number);
+                        //setLog2(buffernew, number, bw);
                     }
                     reciced.RemoveRange(0, Print.HEADER_LENGTH + bodySize);
                 }
